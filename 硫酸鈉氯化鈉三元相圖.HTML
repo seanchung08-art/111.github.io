@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>NaCl-Na₂SO₄-H₂O 三元相图｜干基固盐配比合一图</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{font-family:"Microsoft JhengHei",Arial;background:#f4f6f8;padding:15px;margin:0;}
+.container{max-width:1100px;margin:0 auto;}
+h1{text-align:center;color:#2c3e50;font-size:22px;margin:8px 0;}
+.info{text-align:center;color:#555;font-size:14px;margin-bottom:15px;line-height:1.6;}
+.card{background:#fff;padding:20px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,0.08);}
+canvas{width:100% !important;height:700px !important;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>NaCl-Na₂SO₄-H₂O 三元饱和相图（75/80/85℃ 整合单图）</h1>
+  <div class="info">
+    X：液相NaCl质量分数(%)　Y：液相Na₂SO₄质量分数(%)<br>
+    配比为【结晶后干基纯固盐质量比】不含水｜蓝=75℃　绿=80℃　红=85℃
+  </div>
+  <div class="card">
+    <canvas id="mainChart"></canvas>
+  </div>
+</div>
+
+<script>
+// ===== 1. 各温度饱和边界数据 =====
+const bound75 = {color:"#3498db", label:"75℃饱和边界",
+  pts:[{x:0,y:0},{x:26.7,y:0},{x:24.8,y:5.5},{x:0,y:31.8}]};
+const bound80 = {color:"#2ecc71", label:"80℃饱和边界",
+  pts:[{x:0,y:0},{x:26.8,y:0},{x:24.5,y:5.2},{x:0,y:31.5}]};
+const bound85 = {color:"#e74c3c", label:"85℃饱和边界",
+  pts:[{x:0,y:0},{x:26.9,y:0},{x:24.2,y:4.9},{x:0,y:31.2}]};
+
+// ===== 2. 干基固盐配比(不含水) + 对应各温度起始结晶液相点 / 比重 / ΔTb =====
+// 格式：{ratio:"干基NaCl:Na₂SO₄", t:"温度",x:液相NaCl%,y:液相Na₂SO₄%,rho:比重,dTb:温升,color:点颜色}
+const dryBasePoints = [
+  // ---------- 75℃ 干基配比 ----------
+  {ratio:"9:1",t:"75℃",x:25.71,y:2.86,rho:1.209,dTb:6.74,color:"#3498db"},
+  {ratio:"7:3",t:"75℃",x:23.26,y:9.97,rho:1.252,dTb:7.72,color:"#3498db"},
+  {ratio:"5:5",t:"75℃",x:19.84,y:19.84,rho:1.312,dTb:9.32,color:"#3498db"},
+  {ratio:"3:7",t:"75℃",x:9.37,y:21.86,rho:1.253,dTb:5.82,color:"#3498db"},
+  {ratio:"1:9",t:"75℃",x:3.16,y:28.45,rho:1.265,dTb:5.31,color:"#3498db"},
+  // ---------- 80℃ 干基配比 ----------
+  {ratio:"9:1",t:"80℃",x:24.30,y:2.70,rho:1.202,dTb:6.23,color:"#2ecc71"},
+  {ratio:"7:3",t:"80℃",x:22.80,y:9.70,rho:1.248,dTb:7.47,color:"#2ecc71"},
+  {ratio:"5:5",t:"80℃",x:19.50,y:19.50,rho:1.308,dTb:9.06,color:"#2ecc71"},
+  {ratio:"3:7",t:"80℃",x:9.10,y:21.50,rho:1.250,dTb:5.65,color:"#2ecc71"},
+  {ratio:"1:9",t:"80℃",x:3.00,y:28.00,rho:1.262,dTb:5.15,color:"#2ecc71"},
+  // ---------- 85℃ 干基配比 ----------
+  {ratio:"9:1",t:"85℃",x:23.90,y:2.66,rho:1.198,dTb:6.09,color:"#e74c3c"},
+  {ratio:"7:3",t:"85℃",x:22.40,y:9.40,rho:1.244,dTb:7.25,color:"#e74c3c"},
+  {ratio:"5:5",t:"85℃",x:19.20,y:19.20,rho:1.304,dTb:8.83,color:"#e74c3c"},
+  {ratio:"3:7",t:"85℃",x:8.90,y:21.20,rho:1.247,dTb:5.51,color:"#e74c3c"},
+  {ratio:"1:9",t:"85℃",x:2.90,y:27.60,rho:1.259,dTb:5.02,color:"#e74c3c"}
+];
+
+// ===== 3. 构建数据集 =====
+const datasets = [];
+// 三条温度边界线
+[bound75, bound80, bound85].forEach(b=>{
+  datasets.push({
+    label:b.label, data:b.pts,
+    borderColor:b.color, backgroundColor:"transparent",
+    borderWidth:2, pointRadius:3, showLine:true, fill:false
+  });
+});
+// 干基配比结晶散点
+datasets.push({
+  label:"干基固盐配比→起始结晶点",
+  data: dryBasePoints.map(p=>({
+    x:p.x, y:p.y, ratio:p.ratio, t:p.t, rho:p.rho, dTb:p.dTb
+  })),
+  backgroundColor: dryBasePoints.map(p=>p.color),
+  pointRadius:7, pointStyle:"circle"
+});
+
+// ===== 4. 绘图 =====
+const ctx = document.getElementById("mainChart").getContext("2d");
+new Chart(ctx,{
+  type:"scatter",
+  data:{datasets},
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    scales:{
+      x:{
+        title:{display:true, text:"液相 NaCl 质量分数(%)"},
+        min:0, max:32, ticks:{stepSize:5}, grid:{color:"#eee"}
+      },
+      y:{
+        title:{display:true, text:"液相 Na₂SO₄ 质量分数(%)"},
+        min:0, max:35, ticks:{stepSize:5}, grid:{color:"#eee"}
+      }
+    },
+    plugins:{
+      legend:{position:"top"},
+      tooltip:{
+        callbacks:{
+          label:function(item){
+            const d = item.raw;
+            if(!d.ratio) return item.dataset.label;
+            return [
+              "干基固盐配比："+d.ratio,
+              "温度："+d.t,
+              "液相 NaCl："+d.x+" %",
+              "液相 Na₂SO₄："+d.y+" %",
+              "结晶控制比重："+d.rho,
+              "沸点升高 ΔTb："+d.dTb+" ℃"
+            ];
+          }
+        }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

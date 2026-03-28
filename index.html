@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NaCl-Na₂SO₄-H₂O 三元相圖 iPhone專用</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{box-sizing:border-box; margin:0; padding:0;}
+body{font-family:"PingFang TC","Heiti TC",sans-serif; background:#f4f6f8; padding:12px;}
+h1{font-size:18px; text-align:center; color:#2c3e50; margin-bottom:8px; line-height:1.3;}
+.info{font-size:13px; color:#555; text-align:center; margin-bottom:12px; line-height:1.4;}
+.card{background:white; border-radius:10px; padding:12px; box-shadow:0 0 8px rgba(0,0,0,0.08);}
+canvas{width:100% !important; height:62vh !important; max-height:550px;}
+</style>
+</head>
+<body>
+
+<h1>NaCl-Na₂SO₄-H₂O 三元飽和相圖<br>75/80/85℃ 整合｜乾基固鹽配比</h1>
+<div class="info">
+X：液相NaCl(%)　Y：液相Na₂SO₄(%)<br>
+配比=結晶乾物質純固鹽質量比｜藍75℃／綠80℃／紅85℃
+</div>
+
+<div class="card">
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+const ctx = document.getElementById('chart').getContext('2d');
+const bound75 = { color:"#3498db", label:"75℃飽和邊界", pts:[{x:0,y:0},{x:26.7,y:0},{x:24.8,y:5.5},{x:0,y:31.8}] };
+const bound80 = { color:"#2ecc71", label:"80℃飽和邊界", pts:[{x:0,y:0},{x:26.8,y:0},{x:24.5,y:5.2},{x:0,y:31.5}] };
+const bound85 = { color:"#e74c3c", label:"85℃飽和邊界", pts:[{x:0,y:0},{x:26.9,y:0},{x:24.2,y:4.9},{x:0,y:31.2}] };
+
+const points = [
+  {ratio:"9:1",t:"75℃",x:25.71,y:2.86,rho:1.209,dTb:6.74,c:"#3498db"},
+  {ratio:"7:3",t:"75℃",x:23.26,y:9.97,rho:1.252,dTb:7.72,c:"#3498db"},
+  {ratio:"5:5",t:"75℃",x:19.84,y:19.84,rho:1.312,dTb:9.32,c:"#3498db"},
+  {ratio:"3:7",t:"75℃",x:9.37,y:21.86,rho:1.253,dTb:5.82,c:"#3498db"},
+  {ratio:"1:9",t:"75℃",x:3.16,y:28.45,rho:1.265,dTb:5.31,c:"#3498db"},
+  {ratio:"9:1",t:"80℃",x:24.30,y:2.70,rho:1.202,dTb:6.23,c:"#2ecc71"},
+  {ratio:"7:3",t:"80℃",x:22.80,y:9.70,rho:1.248,dTb:7.47,c:"#2ecc71"},
+  {ratio:"5:5",t:"80℃",x:19.50,y:19.50,rho:1.308,dTb:9.06,c:"#2ecc71"},
+  {ratio:"3:7",t:"80℃",x:9.10,y:21.50,rho:1.250,dTb:5.65,c:"#2ecc71"},
+  {ratio:"1:9",t:"80℃",x:3.00,y:28.00,rho:1.262,dTb:5.15,c:"#2ecc71"},
+  {ratio:"9:1",t:"85℃",x:23.90,y:2.66,rho:1.198,dTb:6.09,c:"#e74c3c"},
+  {ratio:"7:3",t:"85℃",x:22.40,y:9.40,rho:1.244,dTb:7.25,c:"#e74c3c"},
+  {ratio:"5:5",t:"85℃",x:19.20,y:19.20,rho:1.304,dTb:8.83,c:"#e74c3c"},
+  {ratio:"3:7",t:"85℃",x:8.90,y:21.20,rho:1.247,dTb:5.51,c:"#e74c3c"},
+  {ratio:"1:9",t:"85℃",x:2.90,y:27.60,rho:1.259,dTb:5.02,c:"#e74c3c"}
+];
+
+const datasets = [];
+[bound75,bound80,bound85].forEach(b=>{
+  datasets.push({
+    label:b.label,data:b.pts,borderColor:b.color,backgroundColor:"transparent",
+    borderWidth:2,pointRadius:3,showLine:true,fill:false
+  });
+});
+datasets.push({
+  label:"乾基配比結晶點",
+  data:points.map(p=>({x:p.x,y:p.y,ratio:p.ratio,t:p.t,rho:p.rho,dTb:p.dTb})),
+  backgroundColor:points.map(p=>p.c),pointRadius:7,pointStyle:"circle"
+});
+
+new Chart(ctx,{
+  type:"scatter",
+  data:{datasets},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{position:"top",labels:{font:{size:11}}},
+      tooltip:{
+        backgroundColor:"rgba(0,0,0,0.7)",
+        titleFont:{size:14},bodyFont:{size:13},
+        callbacks:{label:it=>{
+          const d=it.raw;
+          return [`乾基配比:${d.ratio}`,`溫度:${d.t}`,`NaCl:${d.x}%`,`Na₂SO₄:${d.y}%`,`結晶比重:${d.rho}`,`ΔTb:${d.dTb}℃`];
+        }}
+      }
+    },
+    scales:{
+      x:{title:{display:true,text:"NaCl 液相%",font:{size:12}},min:0,max:32,ticks:{font:{size:11}}},
+      y:{title:{display:true,text:"Na₂SO₄ 液相%",font:{size:12}},min:0,max:35,ticks:{font:{size:11}}}
+    }
+  }
+});
+</script>
+</body>
+</html>

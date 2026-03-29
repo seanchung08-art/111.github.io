@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>NaCl-Na₂SO₄-H₂O 三元相圖 iPhone專用</title>
+<title>NaCl-Na₂SO₄-H₂O Ternary Phase Diagram 75/80/85℃</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{box-sizing:border-box; margin:0; padding:0;}
@@ -25,22 +25,25 @@ canvas{width:100% !important; height:62vh !important; max-height:550px;}
 </head>
 <body>
 
-<h1>NaCl-Na₂SO₄-H₂O 三元飽和相圖<br>75/80/85℃ 整合｜乾基固鹽配比</h1>
+<!-- 頁面標題已改英文 -->
+<h1>NaCl-Na₂SO₄-H₂O Ternary Saturation Phase Diagram<br>75/80/85℃ | Dry-Base Salt Ratio</h1>
 <div class="info">
-X：液相NaCl(%)　Y：液相Na₂SO₄(%)<br>
-配比=結晶乾物質純固鹽質量比｜藍75℃／綠80℃／紅85℃
+X: Liquid NaCl (%)　Y: Liquid Na₂SO₄ (%)<br>
+Ratio = Mass Ratio of Crystalline Dry Solid Salt | Blue 75℃ / Green 80℃ / Red 85℃<br>
+<br>
+Author: Chung, Chang-Yen (2026). Taipei, Taiwan.
 </div>
 
 <div class="query-section">
-  <div class="query-title">查詢斜線數據 (比例 0~10 完整細分)</div>
+  <div class="query-title">Query Data on Diagonal Line (Ratio 0~10)</div>
   <select class="temp-select" id="tempSelect">
-    <option value="">請選擇查詢溫度</option>
+    <option value="">Select Temperature</option>
     <option value="75℃">75℃</option>
     <option value="80℃">80℃</option>
     <option value="85℃">85℃</option>
-    <option value="all">所有溫度</option>
+    <option value="all">All Temperatures</option>
   </select>
-  <button class="query-btn" id="queryBtn">查詢數據</button>
+  <button class="query-btn" id="queryBtn">Query Data</button>
   <div id="resultContainer"></div>
 </div>
 
@@ -50,13 +53,11 @@ X：液相NaCl(%)　Y：液相Na₂SO₄(%)<br>
 
 <script>
 const ctx = document.getElementById('chart').getContext('2d');
-const bound75 = { color:"#3498db", label:"75℃飽和邊界", pts:[{x:0,y:0},{x:26.7,y:0},{x:24.8,y:5.5},{x:0,y:31.8}] };
-const bound80 = { color:"#2ecc71", label:"80℃飽和邊界", pts:[{x:0,y:0},{x:26.8,y:0},{x:24.5,y:5.2},{x:0,y:31.5}] };
-const bound85 = { color:"#e74c3c", label:"85℃飽和邊界", pts:[{x:0,y:0},{x:26.9,y:0},{x:24.2,y:4.9},{x:0,y:31.2}] };
+const bound75 = { color:"#3498db", label:"75℃ Saturation Boundary", pts:[{x:0,y:0},{x:26.7,y:0},{x:24.8,y:5.5},{x:0,y:31.8}] };
+const bound80 = { color:"#2ecc71", label:"80℃ Saturation Boundary", pts:[{x:0,y:0},{x:26.8,y:0},{x:24.5,y:5.2},{x:0,y:31.5}] };
+const bound85 = { color:"#e74c3c", label:"85℃ Saturation Boundary", pts:[{x:0,y:0},{x:26.9,y:0},{x:24.2,y:4.9},{x:0,y:31.2}] };
 
-// ✅ 已細分為 0~10 完整 11 組比例
 const points = [
-  // 75℃
   {ratio:"0:10",t:"75℃",x:0.00,y:31.80,rho:1.272,dTb:5.00,c:"#3498db"},
   {ratio:"1:9",t:"75℃",x:3.16,y:28.45,rho:1.265,dTb:5.31,c:"#3498db"},
   {ratio:"2:8",t:"75℃",x:6.32,y:25.10,rho:1.258,dTb:5.62,c:"#3498db"},
@@ -69,7 +70,6 @@ const points = [
   {ratio:"9:1",t:"75℃",x:25.71,y:2.86,rho:1.209,dTb:6.74,c:"#3498db"},
   {ratio:"10:0",t:"75℃",x:26.70,y:0.00,rho:1.190,dTb:6.30,c:"#3498db"},
 
-  // 80℃
   {ratio:"0:10",t:"80℃",x:0.00,y:31.50,rho:1.268,dTb:4.85,c:"#2ecc71"},
   {ratio:"1:9",t:"80℃",x:3.00,y:28.00,rho:1.262,dTb:5.15,c:"#2ecc71"},
   {ratio:"2:8",t:"80℃",x:6.00,y:24.80,rho:1.255,dTb:5.45,c:"#2ecc71"},
@@ -82,7 +82,6 @@ const points = [
   {ratio:"9:1",t:"80℃",x:24.30,y:2.70,rho:1.202,dTb:6.23,c:"#2ecc71"},
   {ratio:"10:0",t:"80℃",x:26.80,y:0.00,rho:1.186,dTb:6.15,c:"#2ecc71"},
 
-  // 85℃
   {ratio:"0:10",t:"85℃",x:0.00,y:31.20,rho:1.265,dTb:4.70,c:"#e74c3c"},
   {ratio:"1:9",t:"85℃",x:2.90,y:27.60,rho:1.259,dTb:5.02,c:"#e74c3c"},
   {ratio:"2:8",t:"85℃",x:5.80,y:24.50,rho:1.252,dTb:5.33,c:"#e74c3c"},
@@ -104,7 +103,7 @@ const datasets = [];
   });
 });
 datasets.push({
-  label:"乾基配比結晶點",
+  label:"Dry-Base Ratio Crystallization Points",
   data:points.map(p=>({x:p.x,y:p.y,ratio:p.ratio,t:p.t,rho:p.rho,dTb:p.dTb})),
   backgroundColor:points.map(p=>p.c),pointRadius:6,pointStyle:"circle"
 });
@@ -121,13 +120,20 @@ new Chart(ctx,{
         titleFont:{size:14},bodyFont:{size:13},
         callbacks:{label:it=>{
           const d=it.raw;
-          return [`乾基配比:${d.ratio}`,`溫度:${d.t}`,`NaCl:${d.x}%`,`Na₂SO₄:${d.y}%`,`結晶比重:${d.rho}`,`ΔTb:${d.dTb}℃`];
+          return [
+            `Dry-Base Ratio: ${d.ratio}`,
+            `Temperature: ${d.t}`,
+            `NaCl: ${d.x}%`,
+            `Na₂SO₄: ${d.y}%`,
+            `Density: ${d.rho}`,
+            `ΔTb: ${d.dTb}℃`
+          ];
         }}
       }
     },
     scales:{
-      x:{title:{display:true,text:"NaCl 液相%",font:{size:12}},min:0,max:32,ticks:{font:{size:11}}},
-      y:{title:{display:true,text:"Na₂SO₄ 液相%",font:{size:12}},min:0,max:35,ticks:{font:{size:11}}}
+      x:{title:{display:true,text:"NaCl Liquid Phase (%)",font:{size:12}},min:0,max:32,ticks:{font:{size:11}}},
+      y:{title:{display:true,text:"Na₂SO₄ Liquid Phase (%)",font:{size:12}},min:0,max:35,ticks:{font:{size:11}}}
     }
   }
 });
@@ -140,7 +146,7 @@ document.getElementById('queryBtn').addEventListener('click', function() {
   resultContainer.innerHTML = '';
   
   if (!selectedTemp) {
-    resultContainer.innerHTML = '<div style="color:#e74c3c; text-align:center; margin-top:10px;">請選擇查詢溫度！</div>';
+    resultContainer.innerHTML = '<div style="color:#e74c3c; text-align:center; margin-top:10px;">Please select a temperature!</div>';
     return;
   }
   
@@ -152,7 +158,7 @@ document.getElementById('queryBtn').addEventListener('click', function() {
   }
   
   if (filteredPoints.length === 0) {
-    resultContainer.innerHTML = '<div style="color:#7f8c8d; text-align:center; margin-top:10px;">未查詢到相關數據！</div>';
+    resultContainer.innerHTML = '<div style="color:#7f8c8d; text-align:center; margin-top:10px;">No data found!</div>';
     return;
   }
   
@@ -162,11 +168,11 @@ document.getElementById('queryBtn').addEventListener('click', function() {
   const thead = document.createElement('thead');
   thead.innerHTML = `
     <tr>
-      <th>乾基配比</th>
-      <th>溫度</th>
-      <th>NaCl 液相(%)</th>
-      <th>Na₂SO₄ 液相(%)</th>
-      <th>結晶比重</th>
+      <th>Dry-Base Ratio</th>
+      <th>Temp.</th>
+      <th>NaCl Liquid (%)</th>
+      <th>Na₂SO₄ Liquid (%)</th>
+      <th>Density</th>
       <th>ΔTb (℃)</th>
     </tr>
   `;

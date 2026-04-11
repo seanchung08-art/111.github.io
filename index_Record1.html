@@ -27,9 +27,9 @@
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（可點擊編輯）</h2>
+    <h2>比重 / 溫度記錄表（自動讀取試算表）</h2>
     <div id="editTip" class="edit-info"></div>
-    <div id="status" class="status">準備就緒</div>
+    <div id="status" class="status">讀取試算表資料中...</div>
 
     <div class="form-group">
         <label>量測日期：</label>
@@ -90,18 +90,18 @@
 // ==============================================
 // 填入你的 Google Apps Script 網址
 // ==============================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHMcZ3-SP1L3sMDWuxOjpdCz3cxvgT8QEmU5wgFUa9bsBk7Dqf9GfsBAdWDaDhY6lx/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfd39PakIarF6otX8jqvETl4H6Vwkg1AX4UEMju99smk7K7-EfHC1rZqCcleCHsXBl/exec";
 // ==============================================
 
 let records = [];
-let editIndex = -1; // 目前編輯中的行數
+let editIndex = -1;
 
+// 狀態提示
 function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
     el.textContent = msg;
     el.className = isError ? "status error" : "status success";
 }
-
 function setEditTip(msg) {
     document.getElementById("editTip").textContent = msg;
 }
@@ -164,7 +164,7 @@ function renderTable() {
         tr.onclick = () => {
             editIndex = idx;
             fillForm(item);
-            setEditTip(`✅ 正在編輯第 ${idx+1} 筆`);
+            setEditTip(`編輯第 ${idx+1} 筆`);
         };
         tr.innerHTML = `
             <td>${item.date}</td>
@@ -181,31 +181,54 @@ function renderTable() {
 
 // 填入編輯
 function fillForm(item) {
-    const [y,m,d] = item.date.split("/");
-    const [h,i] = item.time.split(":");
-    document.getElementById("year").value = y;
-    document.getElementById("month").value = m;
-    document.getElementById("day").value = d;
-    document.getElementById("hour").value = h;
-    document.getElementById("minute").value = i;
-    document.getElementById("density").value = item.density;
-    document.getElementById("temp").value = item.temp;
-    document.getElementById("user").value = item.user;
+    if(!item) return;
+    const [y,m,d] = (item.date || "").split("/");
+    const [h,i] = (item.time || "").split(":");
+    document.getElementById("year").value = y || "";
+    document.getElementById("month").value = m || "";
+    document.getElementById("day").value = d || "";
+    document.getElementById("hour").value = h || "";
+    document.getElementById("minute").value = i || "";
+    document.getElementById("density").value = item.density || "";
+    document.getElementById("temp").value = item.temp || "";
+    document.getElementById("user").value = item.user || "";
     document.getElementById("note").value = item.note || "";
 
-    let unitText = item.unit;
-    if (unitText.startsWith("其他(")) {
+    let unit = item.unit || "";
+    if (unit.startsWith("其他(")) {
         document.getElementById("unit").value = "其他";
         document.getElementById("otherUnit").style.display = "inline-block";
-        document.getElementById("otherUnit").value = unitText.replace(/其他\((.*)\)/,"$1");
+        document.getElementById("otherUnit").value = unit.replace(/其他\((.*)\)/, "$1");
     } else {
-        document.getElementById("unit").value = unitText;
+        document.getElementById("unit").value = unit;
         document.getElementById("otherUnit").style.display = "none";
         document.getElementById("otherUnit").value = "";
     }
 }
 
-// 送出：新增 or 更新
+// 從試算表載入前50筆
+async function loadFromSheet() {
+    setStatus("讀取試算表中...");
+    try {
+        const res = await fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "load" })
+        });
+        const json = await res.json();
+        if(json.status === "ok") {
+            records = json.data || [];
+            renderTable();
+            setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
+        } else {
+            setStatus("⚠️ 載入失敗", true);
+        }
+    } catch(e) {
+        setStatus("❌ 無法連線試算表", true);
+        console.error(e);
+    }
+}
+
+// 送出儲存
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -216,33 +239,38 @@ async function saveData() {
     const user = document.getElementById("user").value.trim();
     const note = document.getElementById("note").value.trim();
 
-    if (unit === "其他" && !other) return alert("請輸入自訂單元");
-    if (!density || !temp || !user) return alert("請填寫完整");
+    if (unit === "其他" && !other) {
+        alert("請輸入自訂單元");
+        return;
+    }
+    if (!density || !temp || !user) {
+        alert("請填寫完整");
+        return;
+    }
     if (unit === "其他") unit = `其他(${other})`;
 
     const item = { date, time, unit, density, temp, user, note };
     let payload;
 
     if (editIndex >= 0) {
-        // 更新模式
+        // 更新
         payload = { action: "update", rowIndex: editIndex, ...item };
-        records[editIndex] = item;
     } else {
-        // 新增模式
+        // 新增
         payload = { action: "add", ...item };
-        records.unshift(item);
     }
 
-    // 傳到試算表
-    const res = await fetch(GOOGLE_SCRIPT_URL, {
+    // 傳送
+    await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
         body: JSON.stringify(payload)
     });
 
-    setStatus(editIndex >=0 ? "✅ 已更新該筆資料" : "✅ 已新增至試算表");
+    // 立即重新讀取最新資料
+    await loadFromSheet();
+
     editIndex = -1;
     setEditTip("");
-    renderTable();
     clearForm();
 }
 
@@ -264,9 +292,10 @@ document.getElementById("unit").addEventListener("change", function(){
     document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-window.onload = () => {
+// 開網頁自動執行
+window.onload = async () => {
     initDateTime();
-    renderTable();
+    await loadFromSheet();
 };
 </script>
 </body>

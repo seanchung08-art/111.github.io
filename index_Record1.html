@@ -24,6 +24,7 @@
         .error{background:#ffebee;color:#c62828}
         #otherUnit{display:none}
         .edit-info{color:#1a73e8;font-size:14px;margin-bottom:8px}
+        /* 年份输入框样式 */
         #yearInput{display:none;width:70px;}
     </style>
 </head>
@@ -36,7 +37,7 @@
     <div class="form-group">
         <label>測量日期：</label>
         <select id="year"></select>
-        <input type="number" id="yearInput" placeholder="年份" min="80" max="200">
+        <input type="number" id="yearInput" placeholder="年份" min="100" max="200">
         <button type="button" onclick="toggleYearInput()">手動輸入</button>
         / <select id="month"></select> / <select id="day"></select>
     </div>
@@ -93,22 +94,14 @@
 </div>
 
 <script>
-// 請替換成你更新後的 Apps Script URL
-const API_URL = "你的新部署URL";
+// ======================
+// 請替換成你自己的 Google Apps Script 網址
+// ======================
+const API_URL = "https://script.google.com/macros/s/AKfycbzOFPCiXNHw4NWLF884h3DVPPd1SWeLkk2HjOhBCMUI7fe_q21Owx4pL4pwVaBFN8XJ/exec";
 
 let records = [];
 let editIndex = -1;
 let yearInputMode = false;
-
-// 超時控制，避免請求卡住
-const fetchWithTimeout = (url, options, timeout = 10000) => {
-    return Promise.race([
-        fetch(url, options),
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("請求逾時，請檢查網路或重新整理")), timeout)
-        )
-    ]);
-};
 
 // 年份輸入模式切換
 function toggleYearInput() {
@@ -126,57 +119,50 @@ function toggleYearInput() {
     }
 }
 
-// 日期格式化：自動處理各種格式，轉為民國年 YYY/MM/DD
+// 輔助函數：格式化日期為 115/04/10（強制民國年）
 const formatDate = (input) => {
     if (!input) return "";
-    try {
-        let date;
-        if (input instanceof Date) {
-            date = input;
-        } else {
-            const cleanStr = String(input).trim().replace(/-/g, '/');
-            date = new Date(cleanStr);
+    // 如果是字串格式
+    if (typeof input === "string") {
+        // 先處理 -1796/04/11 這種錯誤格式
+        if (input.includes("-")) {
+            const parts = input.split("/");
+            const adYear = parseInt(parts[0]) + 1911;
+            const rocYear = adYear - 1911;
+            return `${rocYear}/${parts[1]}/${parts[2]}`;
         }
-
-        if (isNaN(date.getTime())) {
-            const parts = String(input).split(/[\/\-T ]/).filter(Boolean);
-            if (parts.length >= 3) {
-                let y = parts[0];
-                if (y.length === 4 && parseInt(y) > 1911) {
-                    y = parseInt(y) - 1911;
-                }
-                return `${y}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}`;
-            }
+        // 如果是 115/04/10 格式，直接返回
+        if (input.includes("/")) {
             return input;
         }
-
-        const rocYear = date.getFullYear() - 1911;
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${rocYear}/${month}/${day}`;
-    } catch (e) {
-        return String(input);
+        // 如果是 ISO 格式（如 0115-04-10T15:54:00.000Z）
+        if (input.includes("T")) {
+            const date = new Date(input);
+            const adYear = date.getFullYear();
+            const rocYear = adYear - 1911;
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${rocYear}/${month}/${day}`;
+        }
     }
+    return "";
 };
 
-// 時間格式化：自動轉為 HH:MM
+// 輔助函數：格式化時間為 15:54
 const formatTime = (input) => {
     if (!input) return "";
-    try {
-        let date = new Date(input);
-        if (isNaN(date.getTime())) {
-            const match = String(input).match(/(\d{1,2}):(\d{1,2})/);
-            if (match) {
-                return `${match[1].padStart(2, '0')}:${match[2].padStart(2, '0')}`;
-            }
-            return input;
-        }
+    // 如果是 1899-12-30T10:50:00.000Z 格式
+    if (typeof input === "string" && input.includes("1899")) {
+        const date = new Date(input);
         const hour = String(date.getHours()).padStart(2, "0");
         const minute = String(date.getMinutes()).padStart(2, "0");
         return `${hour}:${minute}`;
-    } catch (e) {
-        return String(input);
     }
+    // 如果是已有的 15:54 格式
+    if (typeof input === "string" && input.includes(":")) {
+        return input;
+    }
+    return "";
 };
 
 // 狀態提示
@@ -187,14 +173,15 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間下拉選單初始化（100-135年）
+// 日期時間下拉選單初始化（年份到 125 年）
 const initDateTime = () => {
   const now = new Date();
   const currentRocYear = now.getFullYear() - 1911;
-  const pad = n => String(n).padStart(2, "0");
+  const pad = n => String(n).padStart(2, "0"); // 補零函數
 
+  // 年（民國年 100 ~ 125 年）
   const yearSel = document.getElementById("year");
-  for(let i = 100; i <= 135; i++){
+  for(let i = 100; i <= 125; i++){
     const opt = document.createElement("option");
     opt.value = i;
     opt.textContent = i;
@@ -202,6 +189,7 @@ const initDateTime = () => {
     yearSel.appendChild(opt);
   }
 
+  // 月（01-12）
   const monthSel = document.getElementById("month");
   for(let i = 1; i <= 12; i++){
     const v = pad(i);
@@ -212,6 +200,7 @@ const initDateTime = () => {
     monthSel.appendChild(opt);
   }
 
+  // 日（01-31）
   const daySel = document.getElementById("day");
   for(let i = 1; i <= 31; i++){
     const v = pad(i);
@@ -222,6 +211,7 @@ const initDateTime = () => {
     daySel.appendChild(opt);
   }
 
+  // 時（00-23）
   const hourSel = document.getElementById("hour");
   for(let i = 0; i < 24; i++){
     const v = pad(i);
@@ -232,6 +222,7 @@ const initDateTime = () => {
     hourSel.appendChild(opt);
   }
 
+  // 分（00-59）
   const minSel = document.getElementById("minute");
   for(let i = 0; i < 60; i++){
     const v = pad(i);
@@ -243,7 +234,7 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染
+// 表格渲染（讀取時自動格式化，強制民國年）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((row, idx) => {
@@ -262,7 +253,7 @@ const renderTable = () => {
   `}).join("");
 };
 
-// 編輯列
+// 編輯列（讀取時自動解析日期時間）
 const editRow = (idx) => {
   editIndex = idx;
   const row = records[idx];
@@ -276,20 +267,24 @@ const editRow = (idx) => {
   const userStr = row[5];
   const noteStr = row[6];
 
+  // 解析日期
   let formattedDate = formatDate(rawDate);
-  let [y, m, d] = formattedDate.split("/").map(item => item || '');
+  let [y, m, d] = formattedDate.split("/");
   const now = new Date();
   const currentRocYear = now.getFullYear() - 1911;
   y = y || currentRocYear;
   m = m || String(now.getMonth() + 1).padStart(2, "0");
   d = d || String(now.getDate()).padStart(2, "0");
 
+  // 解析時間
   let formattedTime = formatTime(rawTime);
-  let [h, mi] = formattedTime.split(":").map(item => item || '');
+  let [h, mi] = formattedTime.split(":");
   h = h || String(now.getHours()).padStart(2, "0");
   mi = mi || "00";
 
-  if(parseInt(y) >= 100 && parseInt(y) <= 135) {
+  // 填入表單
+  // 年份處理：如果在下拉範圍內就用下拉，否則切換到手動輸入
+  if(parseInt(y) >= 100 && parseInt(y) <= 125) {
       document.getElementById("year").value = y;
       document.getElementById("year").style.display = 'inline-block';
       document.getElementById("yearInput").style.display = 'none';
@@ -309,6 +304,7 @@ const editRow = (idx) => {
   document.getElementById("user").value = userStr || "";
   document.getElementById("note").value = noteStr || "";
 
+  // 單元處理
   const unit = unitStr || "";
   if(unit.startsWith("其他(")){
     document.getElementById("unit").value = "其他";
@@ -323,35 +319,32 @@ const editRow = (idx) => {
   setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
-// 讀取資料（加入錯誤處理）
+// 讀取試算表資料
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
-    const res = await fetchWithTimeout(API_URL, {
+    const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "load" })
     });
-
-    if (!res.ok) throw new Error(`伺服器回應錯誤：${res.status}`);
     const json = await res.json();
-
     if(json.status === "ok"){
       records = json.data;
       renderTable();
       setStatus(`✅ 已成功載入 ${records.length} 筆資料`);
     } else {
-      setStatus(`⚠️ 資料讀取失敗：${json.message || "伺服器錯誤"}`, true);
+      setStatus("⚠️ 資料讀取失敗", true);
     }
   } catch (err) {
     console.error(err);
-    setStatus(`❌ ${err.message}，請檢查網路或重新部署Apps Script`, true);
+    setStatus("❌ 網路連線失敗，請檢查網路", true);
   }
 };
 
-// 儲存資料
+// 儲存資料（強制民國年格式）
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
+  // 獲取年份（判斷是下拉還是手動輸入）
   let year;
   if(yearInputMode) {
       year = document.getElementById("yearInput").value.trim();
@@ -363,6 +356,7 @@ const saveData = async () => {
   const hour = document.getElementById("hour").value;
   const minute = document.getElementById("minute").value;
 
+  // 強制格式化為 115/04/10 和 15:54
   const dateStr = `${year}/${month}/${day}`;
   const timeStr = `${hour}:${minute}`;
 
@@ -373,10 +367,12 @@ const saveData = async () => {
   const user = document.getElementById("user").value.trim();
   const note = document.getElementById("note").value.trim();
 
+  // 欄位檢查
   if(unit === "其他" && !otherUnit) return alert("請輸入自訂單元名稱");
   if(!density || !temp || !user) return alert("請填寫所有必填欄位");
   if(unit === "其他") unit = `其他(${otherUnit})`;
 
+  // 組成資料物件
   const data = {
     date: dateStr,
     time: timeStr,
@@ -387,31 +383,19 @@ const saveData = async () => {
     note: note
   };
 
+  // 判斷是新增還是修改
   const action = editIndex >= 0 ? "update" : "add";
   if(action === "update") data.rowIndex = editIndex;
 
-  try {
-    setStatus("儲存中...");
-    const res = await fetchWithTimeout(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ...data })
-    });
+  // 送出資料
+  await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action, ...data })
+  });
 
-    if (!res.ok) throw new Error(`伺服器回應錯誤：${res.status}`);
-    const json = await res.json();
-
-    if(json.status === "ok"){
-      await loadFromSheet();
-      clearForm();
-      setStatus("✅ 儲存成功！");
-    } else {
-      setStatus(`⚠️ 儲存失敗：${json.message || "伺服器錯誤"}`, true);
-    }
-  } catch (err) {
-    console.error(err);
-    setStatus(`❌ 儲存失敗：${err.message}，請檢查網路`, true);
-  }
+  // 重新讀取並清空表單
+  await loadFromSheet();
+  clearForm();
 };
 
 // 清空表單

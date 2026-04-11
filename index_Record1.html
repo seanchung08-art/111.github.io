@@ -5,31 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>比重溫度記錄表（Google雲端同步）</title>
     <style>
-        * { box-sizing: border-box; font-family: "Microsoft JhengHei", sans-serif; }
-        body { margin: 10px; background: #f5f5f5; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 8px; }
-        .form-group { margin: 10px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        label { font-weight: bold; min-width: fit-content; margin-right: 5px; }
-        select, input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-        .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
-        .btn-confirm { background: #4CAF50; }
-        .btn-delete { background: #f44336; }
-        .btn-download { background: #2196F3; }
-        .btn-refresh { background: #ff9800; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
-        th { background: #eaeaea; }
-        tr:hover { background: #f0f8ff; cursor: pointer; }
-        .status { padding: 8px; border-radius: 5px; margin-bottom: 10px; }
-        .success { background: #e8f5e9; color: #2e7d32; }
-        .error { background: #ffebee; color: #c62828; }
-        #otherUnit { display: none; }
+        *{box-sizing:border-box;font-family:"Microsoft JhengHei",sans-serif}
+        body{margin:10px;background:#f5f5f5}
+        .container{max-width:1000px;margin:auto;background:white;padding:15px;border-radius:8px}
+        .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        label{font-weight:bold;min-width:fit-content;margin-right:5px}
+        select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
+        .btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
+        .btn-confirm{background:#4CAF50}
+        .btn-delete{background:#f44336}
+        .btn-download{background:#2196F3}
+        .btn-refresh{background:#ff9800}
+        .btn-search{background:#9C27B0}
+        .btn-edit{background:#1E88E5}
+        table{width:100%;border-collapse:collapse;margin-top:15px}
+        th,td{border:1px solid #333;padding:8px;text-align:center}
+        th{background:#eaeaea}
+        tr:hover{background:#f0f8ff;cursor:pointer}
+        .status{padding:8px;border-radius:5px;margin-bottom:10px}
+        .success{background:#e8f5e9;color:#2e7d32}
+        .error{background:#ffebee;color:#c62828}
+        #otherUnit{display:none}
+        .search-bar{margin:10px 0;padding:10px;background:#f8f9fa;border-radius:6px}
     </style>
 </head>
 <body>
 <div class="container">
     <h2>比重 / 溫度記錄表（Google雲端同步）</h2>
     <div id="status" class="status">啟動中...</div>
+
+    <!-- 查詢區間 -->
+    <div class="search-bar">
+        <div class="form-group">
+            <label>查詢區間：</label>
+            <select id="sYear"></select>/<select id="sMonth"></select>/<select id="sDay"></select>
+            <span>～</span>
+            <select id="eYear"></select>/<select id="eMonth"></select>/<select id="eDay"></select>
+            <button class="btn btn-search" onclick="searchByDate()">查詢</button>
+            <button class="btn btn-refresh" onclick="loadData()">顯示全部</button>
+        </div>
+    </div>
 
     <div class="form-group">
         <label>量測日期：</label>
@@ -89,96 +104,118 @@
 </div>
 
 <script>
-// ======================================
-// 請貼上你自己的 Google Apps Script 網址
-// ======================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxmrzMhQKNaMUWDjTEfTxIDT2P8WLNQ4BxtuJg3X8QLx6p73SZlusG17Dz3GETMMDbr/exec";
-
-let records = [];
-let selectedIndex = -1;
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrgWxQ8MRvMZDcDYlJlkZzT3tCU3eLIfbIw2puoI37TbpSzxJc4E4oYl1l5HRYlWzx/exec";
+let records = [], filtered = [], selectedIndex = -1, isEditMode = false;
+const statusEl = document.getElementById("status");
+const tableBody = document.getElementById("tableBody");
 
 function setStatus(msg, isError=false) {
-    const el = document.getElementById("status");
-    el.textContent = msg;
-    el.className = isError ? "status error" : "status success";
+    statusEl.textContent = msg;
+    statusEl.className = isError ? "status error" : "status success";
 }
 
-// 民國日期時間初始化
+// 快速產生選單
+function fillSelect(el, start, end, pad, cur, step=1) {
+    el.innerHTML = "";
+    for(let i=start; i<=end; i+=step) {
+        const v = pad ? String(i).padStart(2,"0") : i;
+        el.innerHTML += `<option ${i==cur ? 'selected' : ''}>${v}</option>`;
+    }
+}
+
+// 初始化所有日期
 function initDateTime() {
     const now = new Date();
-    const rocYear = now.getFullYear() - 1911;
-    const month = now.getMonth()+1;
-    const day = now.getDate();
-    const hour = now.getHours();
-    const minute = Math.floor(now.getMinutes()/10)*10;
+    const roc = now.getFullYear() - 1911;
+    const m = now.getMonth()+1;
+    const d = now.getDate();
+    const h = now.getHours();
+    const min = Math.floor(now.getMinutes()/10)*10;
 
-    const y=document.getElementById("year");
-    for(let i=rocYear-3; i<=rocYear+1; i++){
-        let opt=document.createElement("option");
-        opt.value=opt.textContent=i;
-        if(i==rocYear) opt.selected=true;
-        y.appendChild(opt);
-    }
-    const m=document.getElementById("month");
-    for(let i=1; i<=12; i++){
-        let v=String(i).padStart(2,"0");
-        let opt=document.createElement("option");
-        opt.value=opt.textContent=v;
-        if(i==month) opt.selected=true;
-        m.appendChild(opt);
-    }
-    const d=document.getElementById("day");
-    for(let i=1; i<=31; i++){
-        let v=String(i).padStart(2,"0");
-        let opt=document.createElement("option");
-        opt.value=opt.textContent=v;
-        if(i==day) opt.selected=true;
-        d.appendChild(opt);
-    }
-    const h=document.getElementById("hour");
-    for(let i=0; i<24; i++){
-        let v=String(i).padStart(2,"0");
-        let opt=document.createElement("option");
-        opt.value=opt.textContent=v;
-        if(i==hour) opt.selected=true;
-        h.appendChild(opt);
-    }
-    const min=document.getElementById("minute");
-    ["00","10","20","30","40","50"].forEach(v=>{
-        let opt=document.createElement("option");
-        opt.value=opt.textContent=v;
-        if(Number(v)==minute) opt.selected=true;
-        min.appendChild(opt);
-    });
+    fillSelect(document.getElementById("year"), roc-3, roc+1, false, roc);
+    fillSelect(document.getElementById("month"), 1,12,true,m);
+    fillSelect(document.getElementById("day"),1,31,true,d);
+    fillSelect(document.getElementById("hour"),0,23,true,h);
+    document.getElementById("minute").innerHTML = ["00","10","20","30","40","50"].map(v=>
+        `<option ${v==min ? 'selected' : ''}>${v}</option>`).join("");
+
+    fillSelect(document.getElementById("sYear"), roc-3, roc+1, false, roc-1);
+    fillSelect(document.getElementById("sMonth"),1,12,true,1);
+    fillSelect(document.getElementById("sDay"),1,31,true,1);
+    fillSelect(document.getElementById("eYear"), roc-3, roc+1, false, roc);
+    fillSelect(document.getElementById("eMonth"),1,12,true,m);
+    fillSelect(document.getElementById("eDay"),1,31,true,d);
 }
 
-// 從 Google Sheet 讀取
+// 轉日期為數字方便比對
+function dateToNum(str) {
+    if(!str) return 0;
+    const [y,mo,d] = str.split("/");
+    return Number(y)*10000 + Number(mo)*100 + Number(d);
+}
+
+// 查詢
+function searchByDate() {
+    const s = `${document.getElementById("sYear").value}/${document.getElementById("sMonth").value}/${document.getElementById("sDay").value}`;
+    const e = `${document.getElementById("eYear").value}/${document.getElementById("eMonth").value}/${document.getElementById("eDay").value}`;
+    const n1 = dateToNum(s);
+    const n2 = dateToNum(e);
+    filtered = records.filter(r => {
+        const n = dateToNum(r.date);
+        return n >= n1 && n <= n2;
+    });
+    renderTable(filtered);
+    setStatus(`查詢完成：${filtered.length} 筆`);
+}
+
+// 載入全部
 async function loadData() {
     setStatus("雲端載入中...");
     try {
-        const res = await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify({ action: "load" })
-        });
+        const res = await fetch(GOOGLE_SCRIPT_URL, { method:"POST", body:JSON.stringify({action:"load"}) });
         const rows = await res.json();
-        rows.shift(); // 移除表頭
+        rows.shift();
         records = rows.map(r => ({
-            date: r[0]||"",
-            time: r[1]||"",
-            unit: r[2]||"",
-            density: r[3]||"",
-            temp: r[4]||"",
-            user: r[5]||"",
-            note: r[6]||""
+            date:r[0]||"",time:r[1]||"",unit:r[2]||"",density:r[3]||"",temp:r[4]||"",user:r[5]||"",note:r[6]||""
         }));
-        renderTable();
+        filtered = [...records];
+        renderTable(filtered);
         setStatus(`✅ 載入成功（${records.length} 筆）`);
     } catch(e) {
         setStatus("⚠️ 載入失敗", true);
     }
 }
 
-// 儲存到 Google Sheet
+// 渲染表格
+function renderTable(data) {
+    tableBody.innerHTML = data.map((item,i) => `
+        <tr onclick="selectRecord(${i})">
+            <td>${item.date}</td><td>${item.time}</td><td>${item.unit}</td>
+            <td>${item.density}</td><td>${item.temp}</td><td>${item.user}</td><td>${item.note}</td>
+        </tr>
+    `).join("");
+}
+
+// 點選紀錄（編輯用）
+function selectRecord(idx) {
+    selectedIndex = idx;
+    isEditMode = true;
+    const item = filtered[idx];
+    const [y,mo,d] = item.date.split("/");
+    const [h,i] = item.time.split(":");
+    document.getElementById("year").value = y;
+    document.getElementById("month").value = mo;
+    document.getElementById("day").value = d;
+    document.getElementById("hour").value = h;
+    document.getElementById("minute").value = i;
+    document.getElementById("density").value = item.density;
+    document.getElementById("temp").value = item.temp;
+    document.getElementById("user").value = item.user;
+    document.getElementById("note").value = item.note;
+    setStatus("已載入資料，修改後按「確認送出」");
+}
+
+// 儲存 & 編輯
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -195,67 +232,40 @@ async function saveData() {
 
     try {
         setStatus("儲存中...");
-        await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify({
-                action: "save", date, time, unit, density, temp, user, note
-            })
-        });
-        await loadData();
+        if(isEditMode) {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method:"POST",
+                body:JSON.stringify({action:"update", index:selectedIndex, date,time,unit,density,temp,user,note})
+            });
+        } else {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method:"POST",
+                body:JSON.stringify({action:"save", date,time,unit,density,temp,user,note})
+            });
+        }
+        isEditMode = false;
         clearForm();
-        setStatus("✅ 雲端儲存成功");
+        await loadData();
+        setStatus(isEditMode?"✅ 修改完成":"✅ 儲存成功");
     } catch(e) {
-        setStatus("⚠️ 儲存失敗", true);
+        setStatus("⚠️ 失敗", true);
     }
 }
 
 // 刪除
 async function deleteData() {
-    if(selectedIndex<0) return alert("請點選資料列");
+    if(selectedIndex<0) return alert("請點選資料");
     if(!confirm("確定刪除？")) return;
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify({ action: "delete", index: selectedIndex })
+            method:"POST", body:JSON.stringify({action:"delete", index:selectedIndex})
         });
         await loadData();
+        clearForm();
         setStatus("✅ 刪除成功");
     } catch(e) {
         setStatus("⚠️ 刪除失敗", true);
     }
-}
-
-function renderTable() {
-    const tb=document.getElementById("tableBody");
-    tb.innerHTML="";
-    records.forEach((item,i)=>{
-        const tr=document.createElement("tr");
-        tr.onclick=()=>{ selectedIndex=i; fillForm(item); };
-        tr.innerHTML=`
-            <td>${item.date}</td>
-            <td>${item.time}</td>
-            <td>${item.unit}</td>
-            <td>${item.density}</td>
-            <td>${item.temp}</td>
-            <td>${item.user}</td>
-            <td>${item.note}</td>
-        `;
-        tb.appendChild(tr);
-    });
-}
-
-function fillForm(item) {
-    const [y,m,d] = item.date.split("/");
-    const [h,i] = item.time.split(":");
-    document.getElementById("year").value = y;
-    document.getElementById("month").value = m;
-    document.getElementById("day").value = d;
-    document.getElementById("hour").value = h;
-    document.getElementById("minute").value = i;
-    document.getElementById("density").value = item.density;
-    document.getElementById("temp").value = item.temp;
-    document.getElementById("user").value = item.user;
-    document.getElementById("note").value = item.note;
 }
 
 function clearForm() {
@@ -265,14 +275,15 @@ function clearForm() {
     document.getElementById("note").value = "";
     document.getElementById("otherUnit").value = "";
     selectedIndex = -1;
+    isEditMode = false;
 }
 
+// 匯出（查詢後也能匯出）
 function exportCSV() {
-    if(records.length===0) return alert("無資料");
+    const data = filtered.length ? filtered : records;
+    if(!data.length) return alert("無資料");
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
-    records.forEach(r=>{
-        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;
-    });
+    data.forEach(r => { csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`; });
     const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -280,8 +291,8 @@ function exportCSV() {
     a.click();
 }
 
-document.getElementById("unit").addEventListener("change",function(){
-    document.getElementById("otherUnit").style.display = this.value==="其他"?"inline-block":"none";
+document.getElementById("unit").addEventListener("change",e=>{
+    document.getElementById("otherUnit").style.display = e.target.value==="其他"?"inline-block":"none";
 });
 
 window.onload = () => { initDateTime(); loadData(); };

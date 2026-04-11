@@ -236,7 +236,10 @@ async function loadData() {
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        // 修復 1: 強制 Token 為純字串，移除非 ASCII 字元（防止標頭錯誤）
+        if (!TOKEN || TOKEN === "在這裡填入你的GitHub Token") {
+            throw new Error("請先設定GitHub Token");
+        }
+        
         const cleanToken = TOKEN.replace(/[^\x00-\x7F]/g, "");
 
         const res = await fetch("https://api.github.com/gists/" + GIST_ID, {
@@ -254,10 +257,15 @@ async function saveToGist() {
             })
         });
 
+        console.log("API 回應狀態碼：", res.status);
+        const errorText = await res.text();
+        console.log("API 回應內容：", errorText);
+
         if (!res.ok) throw new Error(`儲存失敗 ${res.status}`);
         setStatus("✅ 雲端儲存成功");
     } catch (e) {
         setStatus("❌ 儲存失敗：" + e.message, true);
+        console.error("完整錯誤：", e);
     }
 }
 

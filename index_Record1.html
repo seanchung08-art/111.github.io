@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>比重溫度記錄表</title>
+    <title>比重温度记录表</title>
     <style>
         *{box-sizing:border-box;font-family:"Microsoft JhengHei",sans-serif}
         body{margin:10px;background:#f5f5f5}
@@ -28,60 +28,60 @@
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表</h2>
+    <h2>比重 / 温度记录表</h2>
     <div id="editTip" class="edit-info"></div>
-    <div id="status" class="status">讀取中...</div>
+    <div id="status" class="status">读取中...</div>
 
     <div class="form-group">
-        <label>量測日期：</label>
+        <label>测量日期：</label>
         <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
     </div>
     <div class="form-group">
-        <label>量測時間：</label>
+        <label>测量时间：</label>
         <select id="hour"></select> : <select id="minute"></select>
     </div>
     <div class="form-group">
-        <label>單元名稱：</label>
+        <label>单元名称：</label>
         <select id="unit">
             <option value="原液坑一">原液坑一</option>
             <option value="原液坑二">原液坑二</option>
             <option value="VVCC#A">VVCC#A</option>
             <option value="VVCC#B">VVCC#B</option>
             <option value="VVCC#C">VVCC#C</option>
-            <option value="結晶罐#A">結晶罐#A</option>
-            <option value="結晶罐#B">結晶罐#B</option>
-            <option value="結晶罐#C">結晶罐#C</option>
-            <option value="濃縮液槽">濃縮液槽</option>
-            <option value="應急坑">應急坑</option>
+            <option value="结晶罐#A">结晶罐#A</option>
+            <option value="结晶罐#B">结晶罐#B</option>
+            <option value="结晶罐#C">结晶罐#C</option>
+            <option value="浓缩液槽">浓缩液槽</option>
+            <option value="应急坑">应急坑</option>
             <option value="其他">其他</option>
         </select>
-        <input type="text" id="otherUnit" placeholder="自訂單元">
+        <input type="text" id="otherUnit" placeholder="自定义单元">
     </div>
     <div class="form-group">
         <label>比重：</label>
         <input type="number" step="0.001" id="density" placeholder="例：1.025">
     </div>
     <div class="form-group">
-        <label>溫度：</label>
+        <label>温度：</label>
         <input type="number" id="temp" placeholder="例：28">
     </div>
     <div class="form-group">
-        <label>測量者：</label>
+        <label>测量者：</label>
         <input type="text" id="user" placeholder="姓名">
     </div>
     <div class="form-group">
-        <label>備註：</label>
-        <input type="text" id="note" placeholder="請輸入備註">
+        <label>备注：</label>
+        <input type="text" id="note" placeholder="请输入备注">
     </div>
 
-    <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
+    <button class="btn btn-confirm" onclick="saveData()">确认送出</button>
     <button class="btn btn-refresh" onclick="loadFromSheet()">重新整理</button>
-    <button class="btn btn-clear" onclick="clearForm()">取消編輯</button>
+    <button class="btn btn-clear" onclick="clearForm()">取消编辑</button>
 
     <table>
         <thead>
             <tr>
-                <th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th>
+                <th>日期</th><th>时间</th><th>单元</th><th>比重</th><th>温度</th><th>测量者</th><th>备注</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -90,14 +90,14 @@
 
 <script>
 // ======================
-// 貼上你的 Google Script 網址
+// 贴上你的 Google Script 网址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxrRmEjPx2Le4ueFpbZfX4l-R8G9rZ00c_wYp4NSzP5ZvWFWnWVMHh8QL6k4oTnYSjd/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwxnFBjcbJaOcF3ovtPCUMiXyNCyz0zEb2LYchlJZ-1VCJxbFAP2TDPj-GPAO_E1kDL/exec";
 
 let records = [];
 let editIndex = -1;
 
-// 狀態
+// 状态
 const setStatus = (msg, err=false) => {
   const el = document.getElementById("status");
   el.textContent = msg;
@@ -105,7 +105,7 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間初始化
+// 日期时间初始化
 const initDateTime = () => {
   const now = new Date();
   const roc = now.getFullYear() - 1911;
@@ -137,7 +137,7 @@ const initDateTime = () => {
     if(i === now.getDate()) opt.selected = true;
     d.appendChild(opt);
   }
-  // 時
+  // 时
   const h = document.getElementById("hour");
   for(let i=0;i<24;i++){
     const v = fill(i);
@@ -155,7 +155,7 @@ const initDateTime = () => {
   });
 };
 
-// 表格渲染
+// 表格渲染（强制显示文本格式）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((item,i)=>`
@@ -171,7 +171,7 @@ const renderTable = () => {
   `).join("");
 };
 
-// 編輯
+// 编辑
 const editRow = (i) => {
   editIndex = i;
   const item = records[i];
@@ -199,30 +199,28 @@ const editRow = (i) => {
     document.getElementById("otherUnit").style.display = "none";
     document.getElementById("otherUnit").value = "";
   }
-  setEditTip(`編輯第 ${i+1} 筆`);
+  setEditTip(`编辑第 ${i+1} 笔`);
 };
 
-// 讀取試算表
+// 读取工作表
 const loadFromSheet = async () => {
-  setStatus("讀取中...");
+  setStatus("读取中...");
   try {
     const res = await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"load"})});
     const json = await res.json();
     if(json.status === "ok"){
       records = json.data;
       renderTable();
-      setStatus(`✅ 已載入 ${records.length} 筆`);
+      setStatus(`✅ 已载入 ${records.length} 笔`);
     }else{
-      setStatus("⚠️ 讀取失敗",true);
+      setStatus("⚠️ 读取失败",true);
     }
   }catch(e){
-    setStatus("❌ 連線失敗",true);
+    setStatus("❌ 连线失败",true);
   }
 };
 
-// ================================
-// 【關鍵】提交直接寫入 115/04/10 + 15:00
-// ================================
+// 确认送出（强制写入文本格式）
 const saveData = async () => {
   const Y = document.getElementById("year").value;
   const M = document.getElementById("month").value;
@@ -230,9 +228,9 @@ const saveData = async () => {
   const HH = document.getElementById("hour").value;
   const MM = document.getElementById("minute").value;
 
-  // 強制標準格式
-  const date = `${Y}/${M}/${D}`;    // 115/04/10
-  const time = `${HH}:${MM}`;      // 15:00
+  // 强制格式为 115/04/11 和 15:00
+  const date = `${Y}/${M}/${D}`;
+  const time = `${HH}:${MM}`;
 
   let unit = document.getElementById("unit").value;
   const other = document.getElementById("otherUnit").value.trim();
@@ -241,8 +239,8 @@ const saveData = async () => {
   const user = document.getElementById("user").value.trim();
   const note = document.getElementById("note").value.trim();
 
-  if(unit === "其他" && !other) return alert("請輸入自訂單元");
-  if(!density || !temp || !user) return alert("請填寫完整");
+  if(unit === "其他" && !other) return alert("请输入自定义单元");
+  if(!density || !temp || !user) return alert("请填写完整");
   if(unit === "其他") unit = `其他(${other})`;
 
   const data = { date, time, unit, density, temp, user, note };
@@ -267,12 +265,12 @@ const clearForm = () => {
   setEditTip("");
 };
 
-// 其他單元
+// 其他单元
 document.getElementById("unit").addEventListener("change",function(){
   document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-// 啟動
+// 启动
 window.onload = async () => { initDateTime(); await loadFromSheet(); };
 </script>
 </body>

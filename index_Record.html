@@ -51,7 +51,7 @@
         .btn-confirm { background: #4CAF50; color: white; }
         .btn-delete { background: #f44336; color: white; }
         .btn-download { background: #2196F3; color: white; }
-        .btn-sync { background: #6a1b9a; color: white; }
+        .btn-refresh { background: #ff9800; color: white; }
         .page-btn {
             padding: 6px 12px;
             margin: 0 5px;
@@ -98,8 +98,7 @@
 </head>
 <body>
     <div class="container">
-        <h2>比重 / 溫度 記錄表（GitHub 雲端版）</h2>
-
+        <h2>比重 / 溫度 記錄表（GitHub Pages 版）</h2>
         <div id="status" class="status"></div>
 
         <div class="form-group">
@@ -151,7 +150,7 @@
         <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
         <button class="btn btn-delete" onclick="deleteData()">刪除選取</button>
         <button class="btn btn-download" onclick="exportCSV()">下載CSV</button>
-        <button class="btn btn-sync" onclick="loadFromGitHub()">重新整理</button>
+        <button class="btn btn-refresh" onclick="loadFromLocal()">重新整理</button>
 
         <table id="recordTable">
             <thead>
@@ -175,22 +174,11 @@
     </div>
 
     <script>
-        // ===================== 請填寫你的 GitHub 資訊 =====================
-        const CONFIG = {
-            OWNER: "seanchung08-art",      // 例如：chungchangyen
-            REPO: "seanchung08-art.github.io",         // 例如：density-record
-            PATH: "data.json",            // 資料存在這個檔案
-            TOKEN: "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"  // 必須有 repo 權限
-        };
-        // =================================================================
-
         let recordList = [];
         let selectIndex = -1;
         const pageSize = 100;
         let currentPage = 1;
-        let currentSha = null;
 
-        // 狀態提示
         function setStatus(msg, isError = false) {
             const el = document.getElementById('status');
             el.textContent = msg;
@@ -236,7 +224,7 @@
             hourSel.appendChild(opt);
         }
 
-        // 分鐘 10 分間隔
+        // 分鐘
         const minSel = document.getElementById('minute');
         const minuteList = ['00','10','20','30','40','50'];
         for(let m of minuteList){
@@ -246,7 +234,6 @@
             minSel.appendChild(opt);
         }
 
-        // 其他單元
         document.getElementById('unit').addEventListener('change', function(){
             const otherInput = document.getElementById('otherUnit');
             if(this.value === '其他'){
@@ -257,71 +244,35 @@
             }
         });
 
-        // 從 GitHub 讀取 data.json
-        async function loadFromGitHub() {
-            setStatus("讀取雲端資料中…");
+        // 改用 LocalStorage 儲存（解決跨域問題）
+        function saveToLocal() {
+            localStorage.setItem('densityRecords', JSON.stringify(recordList));
+        }
+
+        function loadFromLocal() {
+            setStatus("載入資料中...");
             try {
-                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
-                const res = await fetch(api, {
-                    headers: { Authorization: `token ${CONFIG.TOKEN}` }
-                });
-
-                if (!res.ok) throw new Error("讀取失敗");
-                const data = await res.json();
-                currentSha = data.sha;
-
-                const content = atob(data.content.replace(/\s/g, ''));
-                recordList = JSON.parse(content) || [];
-
+                const data = localStorage.getItem('densityRecords');
+                if (data) {
+                    recordList = JSON.parse(data);
+                } else {
+                    recordList = [];
+                }
                 renderTable();
-                setStatus("雲端資料載入完成");
+                setStatus("資料載入完成");
             } catch (e) {
                 setStatus("載入失敗：" + e.message, true);
             }
         }
 
-        // 儲存到 GitHub
-        async function saveToGitHub() {
-            setStatus("儲存至雲端…");
-            try {
-                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
-                const content = btoa(JSON.stringify(recordList, null, 2));
-
-                const body = {
-                    message: "更新比重溫度記錄",
-                    content: content,
-                    sha: currentSha
-                };
-
-                const res = await fetch(api, {
-                    method: 'PUT',
-                    headers: {
-                        Authorization: `token ${CONFIG.TOKEN}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
-                });
-
-                if (!res.ok) throw new Error("儲存失敗");
-                const data = await res.json();
-                currentSha = data.content.sha;
-                setStatus("雲端儲存成功");
-            } catch (e) {
-                setStatus("儲存失敗：" + e.message, true);
-            }
-        }
-
-        // 自動日期時間
         function setNowDateTime() {
             const now = new Date();
             const year = now.getFullYear() - 1911;
             const month = (now.getMonth() + 1).toString().padStart(2, '0');
             const day = now.getDate().toString().padStart(2, '0');
             const hour = now.getHours().toString().padStart(2, '0');
-            
             const nowMin = now.getMinutes();
             const min = minuteList.find(m => parseInt(m) > nowMin) || '00';
-
             yearSel.value = year;
             monthSel.value = month;
             daySel.value = day;
@@ -329,8 +280,7 @@
             minSel.value = min;
         }
 
-        // 儲存
-        async function saveData(){
+        function saveData(){
             const date = `${yearSel.value}/${monthSel.value}/${daySel.value}`;
             const time = `${hourSel.value}:${minSel.value}`;
             let unit = document.getElementById('unit').value;
@@ -358,13 +308,13 @@
                 recordList.unshift(data);
             }
 
-            await saveToGitHub();
+            saveToLocal();
             currentPage = 1;
             renderTable();
             clearForm();
+            setStatus("儲存成功");
         }
 
-        // 分頁
         function renderTable(){
             const tbody = document.getElementById('tableBody');
             const totalPages = Math.ceil(recordList.length / pageSize);
@@ -407,7 +357,6 @@
             }
         }
 
-        // 選取
         function selectRow(idx){
             selectIndex = idx;
             const d = recordList[idx];
@@ -436,8 +385,7 @@
             document.getElementById('user').value = d.user;
         }
 
-        // 刪除
-        async function deleteData(){
+        function deleteData(){
             if(selectIndex < 0){
                 alert('請先點選表格資料');
                 return;
@@ -445,13 +393,13 @@
             if(confirm('確定刪除?')){
                 recordList.splice(selectIndex,1);
                 selectIndex = -1;
-                await saveToGitHub();
+                saveToLocal();
                 renderTable();
                 clearForm();
+                setStatus("刪除成功");
             }
         }
 
-        // 清空
         function clearForm(){
             document.getElementById('density').value = '';
             document.getElementById('temp').value = '';
@@ -461,7 +409,6 @@
             setNowDateTime();
         }
 
-        // CSV
         function exportCSV() {
             if (recordList.length === 0) {
                 alert('無資料可匯出！');
@@ -483,7 +430,7 @@
                 csv += row.join(',') + '\r\n';
             });
 
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: text/csv });
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -492,9 +439,8 @@
             URL.revokeObjectURL(url);
         }
 
-        // 初始化
         window.onload = function () {
-            loadFromGitHub();
+            loadFromLocal();
             setNowDateTime();
         };
     </script>

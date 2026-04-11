@@ -28,7 +28,7 @@
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（最新 50 筆）</h2>
+    <h2>比重 / 溫度記錄表</h2>
     <div id="editTip" class="edit-info"></div>
     <div id="status" class="status">請點「重新整理」載入資料</div>
 
@@ -90,15 +90,13 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzduTFK7dvuWKovrKTaO2iT_p5O-dGFUQjfPq2IlKshe-QhwVpET5FvEziuVwQSkkKe/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwFyf5xm3sB4nLi4EcXiD2uBWaqFShhlMgOxfnshIA3EoZxwYsNn3RLZKdiP-JHJbj0/exec";
 
 let records = [];
 let editIndex = -1;
 
-// 日期格式化（自動解析試算表日期）
 function formatDate(dateValue) {
     if (!dateValue) return "";
-    
     if (typeof dateValue === "object" || dateValue instanceof Date) {
         const d = new Date(dateValue);
         const roc = d.getFullYear() - 1911;
@@ -106,27 +104,16 @@ function formatDate(dateValue) {
         const d2 = String(d.getDate()).padStart(2, "0");
         return `${roc}/${m}/${d2}`;
     }
-
-    if (typeof dateValue === "string") {
-        if (dateValue.includes("/")) return dateValue;
-        if (dateValue.includes("-")) {
-            const [y, m, d] = dateValue.split("-");
-            return `${y - 1911}/${m}/${d}`;
-        }
-    }
-
+    if (typeof dateValue === "string" && dateValue.includes("/")) return dateValue;
     try {
         const d = new Date(dateValue);
         const roc = d.getFullYear() - 1911;
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const d2 = String(d.getDate()).padStart(2, "0");
         return `${roc}/${m}/${d2}`;
-    } catch {
-        return dateValue;
-    }
+    } catch { return dateValue; }
 }
 
-// 時間格式化
 function formatTime(timeValue) {
     if (!timeValue) return "";
     if (typeof timeValue === "string" && timeValue.includes(":")) return timeValue;
@@ -135,9 +122,7 @@ function formatTime(timeValue) {
         const h = String(d.getHours()).padStart(2, "0");
         const m = String(d.getMinutes()).padStart(2, "0");
         return `${h}:${m}`;
-    } catch {
-        return timeValue;
-    }
+    } catch { return timeValue; }
 }
 
 const setStatus = (msg, err=false) => {
@@ -147,7 +132,6 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 初始化日期下拉
 function initDateTime() {
   const now = new Date();
   const roc = now.getFullYear() - 1911;
@@ -193,7 +177,6 @@ function initDateTime() {
   }
 }
 
-// 渲染表格
 function renderTable() {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((row, idx) => `
@@ -208,7 +191,6 @@ function renderTable() {
   </tr>`).join("");
 }
 
-// 編輯
 function editRow(idx) {
   editIndex = idx;
   const row = records[idx];
@@ -242,7 +224,6 @@ function editRow(idx) {
   setEditTip(`編輯第 ${idx+1} 筆`);
 }
 
-// 手動點擊「重新整理」才讀取
 async function loadFromSheet() {
   setStatus("讀取中...");
   try {
@@ -253,7 +234,7 @@ async function loadFromSheet() {
     if (result.status === "success") {
       records = result.data || [];
       renderTable();
-      setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
+      setStatus(`✅ 已載入 ${records.length} 筆資料`);
     } else {
       setStatus("❌ 載入失敗", true);
     }
@@ -263,7 +244,11 @@ async function loadFromSheet() {
   }
 }
 
-// 儲存（新增到最上方）
+// ======================
+// 核心功能：按下確認送出
+// 1. 存到 Google 試算表
+// 2. 立刻顯示在 HTML 表格最上方
+// ======================
 async function saveData() {
   const year = document.getElementById("year").value;
   const month = document.getElementById("month").value;
@@ -302,11 +287,14 @@ async function saveData() {
       if (editIndex >= 0) {
         records[editIndex] = newRow;
       } else {
+        // 新增：直接加到表格最上方
         records.unshift(newRow);
         if (records.length > 50) records.pop();
       }
+      
+      // 立即更新畫面
       renderTable();
-      setStatus("✅ 儲存成功．最新資料在最上方");
+      setStatus("✅ 儲存成功！已顯示在表格並存入試算表");
       clearForm();
     } else {
       setStatus("❌ 儲存失敗", true);
@@ -317,7 +305,6 @@ async function saveData() {
   }
 }
 
-// 清空
 function clearForm() {
   document.getElementById("density").value = "";
   document.getElementById("temp").value = "";
@@ -334,10 +321,9 @@ document.getElementById("unit").addEventListener("change", function(){
   document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-// 重點：只初始化日期，不自動 load
+// 開啟網頁 不自動讀取
 window.onload = () => {
   initDateTime();
-  // 刪除：await loadFromSheet();
 };
 </script>
 </body>

@@ -3,46 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>比重溫度記錄表（跨設備）</title>
+    <title>比重溫度記錄表（雲端同步）</title>
     <style>
         * { box-sizing: border-box; font-family: "Microsoft JhengHei", sans-serif; }
         body { margin: 10px; background: #f5f5f5; }
         .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 8px; }
-        
-        .form-group { 
-            margin: 10px 0; 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            flex-wrap: wrap;
-        }
-        
-        label { 
-            font-weight: bold; 
-            min-width: fit-content;
-            margin-right: 5px;
-        }
-
-        select, input { 
-            padding: 6px; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            font-size: 16px;
-            width: fit-content;
-            min-width: unset;
-            flex: none;
-        }
-
-        #year { width: 75px; }
-        #month, #day { width: 60px; }
-        #hour, #minute { width: 60px; }
-        #unit { width: auto; min-width: 170px; }
-        #otherUnit { width: 160px; display: none; }
-        #density { width: 120px; }
-        #temp { width: 100px; }
-        #user { width: 140px; }
-        #note { width: 220px; }
-
+        .form-group { margin: 10px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        label { font-weight: bold; min-width: fit-content; margin-right: 5px; }
+        select, input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
         .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
         .btn-confirm { background: #4CAF50; }
         .btn-delete { background: #f44336; }
@@ -55,23 +23,22 @@
         .status { padding: 8px; border-radius: 5px; margin-bottom: 10px; }
         .success { background: #e8f5e9; color: #2e7d32; }
         .error { background: #ffebee; color: #c62828; }
+        #otherUnit { display: none; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（手機電腦同步）</h2>
+    <h2>比重 / 溫度記錄表（手機電腦雲端同步）</h2>
     <div id="status" class="status">啟動中...</div>
 
     <div class="form-group">
         <label>量測日期：</label>
         <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
     </div>
-    
     <div class="form-group">
         <label>量測時間：</label>
         <select id="hour"></select> : <select id="minute"></select>
     </div>
-    
     <div class="form-group">
         <label>單元名稱：</label>
         <select id="unit">
@@ -89,22 +56,18 @@
         </select>
         <input type="text" id="otherUnit" placeholder="自訂單元">
     </div>
-    
     <div class="form-group">
         <label>比重：</label>
         <input type="number" step="0.001" id="density" placeholder="例：1.025">
     </div>
-    
     <div class="form-group">
         <label>溫度：</label>
         <input type="number" id="temp" placeholder="例：28">
     </div>
-    
     <div class="form-group">
         <label>測量者：</label>
         <input type="text" id="user" placeholder="姓名">
     </div>
-
     <div class="form-group">
         <label>備註：</label>
         <input type="text" id="note" placeholder="請輸入備註">
@@ -118,13 +81,7 @@
     <table>
         <thead>
             <tr>
-                <th>日期</th>
-                <th>時間</th>
-                <th>單元</th>
-                <th>比重</th>
-                <th>溫度</th>
-                <th>測量者</th>
-                <th>備註</th>
+                <th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -133,7 +90,7 @@
 
 <script>
 // ==============================================
-// ✅ 你的專屬設定（已經全部幫你填好）
+// 已幫你填入最新有效資訊
 // ==============================================
 const GIST_ID = "f59a858db670f0a698b473ad9281b11b";
 const TOKEN  = "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";
@@ -143,161 +100,143 @@ const FILE_NAME = "data.json";
 let records = [];
 let selectedIndex = -1;
 
-function setStatus(msg, isError = false) {
+function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
     el.textContent = msg;
     el.className = isError ? "status error" : "status success";
 }
 
-// 初始化日期時間 + 自動帶入當下時間（民國年）
+// 初始化日期時間（民國年）
 function initDateTime() {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentROCYear = currentYear - 1911;
-    const currentMonth = now.getMonth() + 1;
-    const currentDay = now.getDate();
-    const currentHour = now.getHours();
-    const currentMinute = Math.floor(now.getMinutes() / 10) * 10;
+    const rocYear = now.getFullYear() - 1911;
+    const month = now.getMonth()+1;
+    const day = now.getDate();
+    const hour = now.getHours();
+    const minute = Math.floor(now.getMinutes()/10)*10;
 
-    const y = document.getElementById("year");
-    for (let i = currentROCYear - 3; i <= currentROCYear + 1; i++) {
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = i;
-        if (i === currentROCYear) opt.selected = true;
+    // 年
+    const y=document.getElementById("year");
+    for(let i=rocYear-3; i<=rocYear+1; i++){
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=i;
+        if(i==rocYear) opt.selected=true;
         y.appendChild(opt);
     }
-
-    const m = document.getElementById("month");
-    for (let i = 1; i <= 12; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i === currentMonth) opt.selected = true;
+    // 月
+    const m=document.getElementById("month");
+    for(let i=1; i<=12; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==month) opt.selected=true;
         m.appendChild(opt);
     }
-
-    const d = document.getElementById("day");
-    for (let i = 1; i <= 31; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i === currentDay) opt.selected = true;
+    // 日
+    const d=document.getElementById("day");
+    for(let i=1; i<=31; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==day) opt.selected=true;
         d.appendChild(opt);
     }
-
-    const h = document.getElementById("hour");
-    for (let i = 0; i < 24; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i === currentHour) opt.selected = true;
+    // 時
+    const h=document.getElementById("hour");
+    for(let i=0; i<24; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==hour) opt.selected=true;
         h.appendChild(opt);
     }
-
-    const min = document.getElementById("minute");
-    ["00", "10", "20", "30", "40", "50"].forEach(v => {
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (Number(v) === currentMinute) opt.selected = true;
+    // 分
+    const min=document.getElementById("minute");
+    ["00","10","20","30","40","50"].forEach(v=>{
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(Number(v)==minute) opt.selected=true;
         min.appendChild(opt);
     });
 }
 
-// 雲端載入資料
+// 載入
 async function loadData() {
     setStatus("雲端載入中...");
     try {
-        const response = await fetch("https://api.github.com/gists/" + GIST_ID);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const gist = await response.json();
-        
-        if (!gist.files || !gist.files[FILE_NAME]) {
-            throw new Error("Gist 中未找到 data.json 檔案");
-        }
-        
-        const content = gist.files[FILE_NAME].content || "[]";
-        try {
-            records = JSON.parse(content);
-        } catch {
-            records = [];
-        }
-        
-        if (!Array.isArray(records)) records = [];
-        
+        const res=await fetch(`https://api.github.com/gists/${GIST_ID}`);
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const gist=await res.json();
+        const content=gist.files?.[FILE_NAME]?.content || "[]";
+        records=JSON.parse(content);
+        if(!Array.isArray(records)) records=[];
         renderTable();
-        setStatus("✅ 雲端載入成功（共 " + records.length + " 筆）");
-    } catch (e) {
-        setStatus("❌ 載入失敗：" + e.message, true);
-        records = [];
-        renderTable();
+        setStatus(`✅ 載入成功（共 ${records.length} 筆）`);
+    } catch(e) {
+        setStatus(`❌ 載入失敗：${e.message}`, true);
+        records=[]; renderTable();
     }
 }
 
-// 雲端儲存（修正 401 驗證格式）
+// 儲存（修正版：Bearer + 正確Header）
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        const res = await fetch("https://api.github.com/gists/" + GIST_ID, {
-            method: "PATCH",
-            headers: {
+        const res=await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+            method:"PATCH",
+            headers:{
                 "Authorization": `Bearer ${TOKEN}`,
-                "Accept": "application/vnd.github.v3+json",
-                "Content-Type": "application/json"
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+                "X-GitHub-Api-Version": "2022-11-28"
             },
-            body: JSON.stringify({
-                files: {
-                    "data.json": {
-                        content: JSON.stringify(records, null, 2)
-                    }
-                }
+            body:JSON.stringify({
+                files:{ [FILE_NAME]:{ content:JSON.stringify(records,null,2) } }
             })
         });
-
-        if (!res.ok) {
-            const err = await res.text();
+        if(!res.ok) {
+            const err=await res.text();
             throw new Error(`儲存失敗 ${res.status}`);
         }
         setStatus("✅ 雲端儲存成功");
-    } catch (e) {
-        setStatus("❌ 儲存失敗：" + e.message, true);
+    } catch(e) {
+        setStatus(`❌ ${e.message}`, true);
+        console.error(e);
     }
 }
 
 function renderTable() {
-    const tbody = document.getElementById("tableBody");
-    tbody.innerHTML = "";
-    records.forEach((item, i) => {
-        const tr = document.createElement("tr");
-        tr.onclick = () => { selectedIndex = i; fillForm(item); };
-        tr.innerHTML = `
-            <td>${item.date || ""}</td>
-            <td>${item.time || ""}</td>
-            <td>${item.unit || ""}</td>
-            <td>${item.density || ""}</td>
-            <td>${item.temp || ""}</td>
-            <td>${item.user || ""}</td>
-            <td>${item.note || ""}</td>
+    const tb=document.getElementById("tableBody");
+    tb.innerHTML="";
+    records.forEach((item,i)=>{
+        const tr=document.createElement("tr");
+        tr.onclick=()=>{ selectedIndex=i; fillForm(item); };
+        tr.innerHTML=`
+            <td>${item.date||""}</td>
+            <td>${item.time||""}</td>
+            <td>${item.unit||""}</td>
+            <td>${item.density||""}</td>
+            <td>${item.temp||""}</td>
+            <td>${item.user||""}</td>
+            <td>${item.note||""}</td>
         `;
-        tbody.appendChild(tr);
+        tb.appendChild(tr);
     });
 }
 
 function fillForm(item) {
-    if (!item) return;
-    
-    const [y, m, d] = (item.date || "").split("/");
-    const [h, i] = (item.time || "").split(":");
-    
-    document.getElementById("year").value = y || "";
-    document.getElementById("month").value = m || "";
-    document.getElementById("day").value = d || "";
-    document.getElementById("hour").value = h || "";
-    document.getElementById("minute").value = i || "";
-    document.getElementById("density").value = item.density || "";
-    document.getElementById("temp").value = item.temp || "";
-    document.getElementById("user").value = item.user || "";
-    document.getElementById("note").value = item.note || "";
+    if(!item) return;
+    const [y,m,d]=(item.date||"").split("/");
+    const [h,i]=(item.time||"").split(":");
+    document.getElementById("year").value=y||"";
+    document.getElementById("month").value=m||"";
+    document.getElementById("day").value=d||"";
+    document.getElementById("hour").value=h||"";
+    document.getElementById("minute").value=i||"";
+    document.getElementById("density").value=item.density||"";
+    document.getElementById("temp").value=item.temp||"";
+    document.getElementById("user").value=item.user||"";
+    document.getElementById("note").value=item.note||"";
 }
 
 async function saveData() {
@@ -310,62 +249,54 @@ async function saveData() {
     const user = document.getElementById("user").value.trim();
     const note = document.getElementById("note").value.trim();
 
-    if (unit === "其他" && !other) return alert("請輸入自訂單元");
-    if (!density || !temp || !user) return alert("請填寫完整");
-    if (unit === "其他") unit = `其他(${other})`;
+    if(unit==="其他" && !other) return alert("請輸入自訂單元");
+    if(!density||!temp||!user) return alert("請填寫完整");
+    if(unit==="其他") unit=`其他(${other})`;
 
-    const item = { date, time, unit, density, temp, user, note };
-
-    if (selectedIndex >= 0) {
-        records[selectedIndex] = item;
-        selectedIndex = -1;
-    } else {
-        records.unshift(item);
-    }
-
+    const item={date,time,unit,density,temp,user,note};
+    selectedIndex>=0 ? records[selectedIndex]=item : records.unshift(item);
+    selectedIndex=-1;
     await saveToGist();
     renderTable();
     clearForm();
 }
 
 function clearForm() {
-    document.getElementById("density").value = "";
-    document.getElementById("temp").value = "";
-    document.getElementById("user").value = "";
-    document.getElementById("note").value = "";
-    document.getElementById("otherUnit").value = "";
-    selectedIndex = -1;
+    document.getElementById("density").value="";
+    document.getElementById("temp").value="";
+    document.getElementById("user").value="";
+    document.getElementById("note").value="";
+    document.getElementById("otherUnit").value="";
+    selectedIndex=-1;
 }
 
 async function deleteData() {
-    if (selectedIndex < 0) return alert("請點選要刪除的資料");
-    if (!confirm("確定刪除？")) return;
-    records.splice(selectedIndex, 1);
-    selectedIndex = -1;
+    if(selectedIndex<0) return alert("請點選要刪除的資料");
+    if(!confirm("確定刪除？")) return;
+    records.splice(selectedIndex,1);
+    selectedIndex=-1;
     await saveToGist();
     renderTable();
 }
 
 function exportCSV() {
-    if (records.length === 0) return alert("無資料可匯出");
-    let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
-    records.forEach(r => {
-        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
+    if(records.length===0) return alert("無資料可匯出");
+    let csv="日期,時間,單元,比重,溫度,測量者,備註\n";
+    records.forEach(r=>{
+        csv+=`${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;
     });
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "比重記錄表.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="比重記錄表.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
-document.getElementById("unit").addEventListener("change", function () {
-    document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
+document.getElementById("unit").addEventListener("change",function(){
+    document.getElementById("otherUnit").style.display=this.value==="其他"?"inline-block":"none";
 });
 
-window.onload = () => { initDateTime(); loadData(); };
+window.onload=()=>{ initDateTime(); loadData(); };
 </script>
 </body>
 </html>

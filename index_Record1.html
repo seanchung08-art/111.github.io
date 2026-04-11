@@ -24,6 +24,8 @@
         .error{background:#ffebee;color:#c62828}
         #otherUnit{display:none}
         .edit-info{color:#1a73e8;font-size:14px;margin-bottom:8px}
+        /* 年份输入框样式 */
+        #yearInput{display:none;width:70px;}
     </style>
 </head>
 <body>
@@ -34,7 +36,10 @@
 
     <div class="form-group">
         <label>測量日期：</label>
-        <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
+        <select id="year"></select>
+        <input type="number" id="yearInput" placeholder="年份" min="100" max="200">
+        <button type="button" onclick="toggleYearInput()">手動輸入</button>
+        / <select id="month"></select> / <select id="day"></select>
     </div>
     <div class="form-group">
         <label>測量時間：</label>
@@ -92,25 +97,53 @@
 // ======================
 // 請替換成你自己的 Google Apps Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbzqS2DWymYRSvn9c3w_pYDse0YOTffqIJEDsTrQXdwA_uhs9m8EjzZcLcf9liqrYLg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbydA8JszWAJ-0caxQxmwhXt1AEHpGwAhxtHbidNxAbwg2dqftV8R-s3fK61_gtUK1ka/exec";
 
 let records = [];
 let editIndex = -1;
+let yearInputMode = false;
 
-// 輔助函數：格式化日期為 115/04/10
+// 年份輸入模式切換
+function toggleYearInput() {
+    const yearSel = document.getElementById('year');
+    const yearInput = document.getElementById('yearInput');
+    yearInputMode = !yearInputMode;
+    if(yearInputMode) {
+        yearSel.style.display = 'none';
+        yearInput.style.display = 'inline-block';
+        yearInput.value = yearSel.value;
+    } else {
+        yearSel.style.display = 'inline-block';
+        yearInput.style.display = 'none';
+        yearSel.value = yearInput.value;
+    }
+}
+
+// 輔助函數：格式化日期為 115/04/10（強制民國年）
 const formatDate = (input) => {
     if (!input) return "";
-    // 如果是 ISO 格式（如 0115-04-10T15:54:00.000Z）
-    if (typeof input === "string" && input.includes("T")) {
-        const date = new Date(input);
-        const rocYear = date.getFullYear() - 1911;
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${rocYear}/${month}/${day}`;
-    }
-    // 如果是已有的 115/04/10 格式
-    if (typeof input === "string" && input.includes("/")) {
-        return input;
+    // 如果是字串格式
+    if (typeof input === "string") {
+        // 先處理 -1796/04/11 這種錯誤格式
+        if (input.includes("-")) {
+            const parts = input.split("/");
+            const adYear = parseInt(parts[0]) + 1911;
+            const rocYear = adYear - 1911;
+            return `${rocYear}/${parts[1]}/${parts[2]}`;
+        }
+        // 如果是 115/04/10 格式，直接返回
+        if (input.includes("/")) {
+            return input;
+        }
+        // 如果是 ISO 格式（如 0115-04-10T15:54:00.000Z）
+        if (input.includes("T")) {
+            const date = new Date(input);
+            const adYear = date.getFullYear();
+            const rocYear = adYear - 1911;
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${rocYear}/${month}/${day}`;
+        }
     }
     return "";
 };
@@ -140,19 +173,19 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間下拉選單初始化
+// 日期時間下拉選單初始化（年份到 125 年）
 const initDateTime = () => {
   const now = new Date();
-  const roc = now.getFullYear() - 1911; // 民國年
+  const currentRocYear = now.getFullYear() - 1911;
   const pad = n => String(n).padStart(2, "0"); // 補零函數
 
-  // 年（民國年，前後各2年）
+  // 年（民國年 100 ~ 125 年）
   const yearSel = document.getElementById("year");
-  for(let i = roc - 2; i <= roc + 1; i++){
+  for(let i = 100; i <= 125; i++){
     const opt = document.createElement("option");
     opt.value = i;
     opt.textContent = i;
-    if(i === roc) opt.selected = true;
+    if(i === currentRocYear) opt.selected = true;
     yearSel.appendChild(opt);
   }
 
@@ -201,7 +234,7 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染（讀取時自動格式化）
+// 表格渲染（讀取時自動格式化，強制民國年）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((row, idx) => {
@@ -237,18 +270,31 @@ const editRow = (idx) => {
   // 解析日期
   let formattedDate = formatDate(rawDate);
   let [y, m, d] = formattedDate.split("/");
-  y = y || (new Date().getFullYear() - 1911);
-  m = m || String(new Date().getMonth() + 1).padStart(2, "0");
-  d = d || String(new Date().getDate()).padStart(2, "0");
+  const now = new Date();
+  const currentRocYear = now.getFullYear() - 1911;
+  y = y || currentRocYear;
+  m = m || String(now.getMonth() + 1).padStart(2, "0");
+  d = d || String(now.getDate()).padStart(2, "0");
 
   // 解析時間
   let formattedTime = formatTime(rawTime);
   let [h, mi] = formattedTime.split(":");
-  h = h || String(new Date().getHours()).padStart(2, "0");
+  h = h || String(now.getHours()).padStart(2, "0");
   mi = mi || "00";
 
   // 填入表單
-  document.getElementById("year").value = y;
+  // 年份處理：如果在下拉範圍內就用下拉，否則切換到手動輸入
+  if(parseInt(y) >= 100 && parseInt(y) <= 125) {
+      document.getElementById("year").value = y;
+      document.getElementById("year").style.display = 'inline-block';
+      document.getElementById("yearInput").style.display = 'none';
+      yearInputMode = false;
+  } else {
+      document.getElementById("yearInput").value = y;
+      document.getElementById("year").style.display = 'none';
+      document.getElementById("yearInput").style.display = 'inline-block';
+      yearInputMode = true;
+  }
   document.getElementById("month").value = m;
   document.getElementById("day").value = d;
   document.getElementById("hour").value = h;
@@ -295,10 +341,16 @@ const loadFromSheet = async () => {
   }
 };
 
-// 儲存資料（強制文字格式傳送）
+// 儲存資料（強制民國年格式）
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
-  const year = document.getElementById("year").value;
+  // 獲取年份（判斷是下拉還是手動輸入）
+  let year;
+  if(yearInputMode) {
+      year = document.getElementById("yearInput").value.trim();
+  } else {
+      year = document.getElementById("year").value;
+  }
   const month = document.getElementById("month").value;
   const day = document.getElementById("day").value;
   const hour = document.getElementById("hour").value;

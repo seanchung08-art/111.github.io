@@ -8,24 +8,43 @@
         * { box-sizing: border-box; font-family: "Microsoft JhengHei", sans-serif; }
         body { margin: 10px; background: #f5f5f5; }
         .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 8px; }
-        .form-group { margin: 10px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        label { min-width: 85px; font-weight: bold; }
+        
+        /* 核心樣式：還原圖片布局，標籤不換行 */
+        .form-group { 
+            margin: 10px 0; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            white-space: nowrap; /* 關鍵：禁止文字換行 */
+        }
+        
+        label { 
+            font-weight: bold; 
+            min-width: fit-content; /* 關鍵：標籤寬度依內容自動撐開 */
+            margin-right: 5px;
+        }
 
-        /* 日期時間下拉選單寬度優化 */
-        #year { width: 70px; flex: none; }
-        #month, #day { width: 60px; flex: none; }
-        #hour, #minute { width: 60px; flex: none; }
+        /* 日期時間下拉選單寬度 */
+        #year { width: 70px; }
+        #month, #day { width: 60px; }
+        #hour, #minute { width: 60px; }
 
-        /* 單元、自訂單元 適合字數 */
-        #unit { width: 180px; flex: none; }
-        #otherUnit { width: 160px; flex: none; }
+        /* 單元、自訂單元 寬度 */
+        #unit { width: 180px; }
+        #otherUnit { width: 160px; display: none; }
 
-        /* 比重、溫度、測量者 輸入寬度優化 */
-        #density { width: 120px; flex: none; }
-        #temp { width: 100px; flex: none; }
-        #user { width: 140px; flex: none; }
+        /* 比重、溫度、測量者 輸入寬度 */
+        #density { width: 180px; }
+        #temp { width: 180px; }
+        #user { width: 180px; }
 
-        select, input { padding: 6px; border:1px solid #ccc; border-radius:4px; }
+        select, input { 
+            padding: 6px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            font-size: 16px; /* 手機點選最佳尺寸 */
+        }
+        
         .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
         .btn-confirm { background: #4CAF50; }
         .btn-delete { background: #f44336; }
@@ -38,7 +57,6 @@
         .status { padding: 8px; border-radius: 5px; margin-bottom: 10px; }
         .success { background: #e8f5e9; color: #2e7d32; }
         .error { background: #ffebee; color: #c62828; }
-        #otherUnit { display: none; }
     </style>
 </head>
 <body>
@@ -46,16 +64,21 @@
     <h2>比重 / 溫度記錄表（手機電腦同步）</h2>
     <div id="status" class="status">啟動中...</div>
 
+    <!-- 量測日期 -->
     <div class="form-group">
         <label>量測日期：</label>
-        <select id="year"></select>/<select id="month"></select>/<select id="day"></select>
+        <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
     </div>
+    
+    <!-- 量測時間 -->
     <div class="form-group">
         <label>量測時間：</label>
-        <select id="hour"></select>:<select id="minute"></select>
+        <select id="hour"></select> : <select id="minute"></select>
     </div>
+    
+    <!-- 單元名稱 -->
     <div class="form-group">
-        <label>單元：</label>
+        <label>單元名稱：</label>
         <select id="unit">
             <option value="原液坑一">原液坑一</option>
             <option value="原液坑二">原液坑二</option>
@@ -71,17 +94,23 @@
         </select>
         <input type="text" id="otherUnit" placeholder="自訂單元">
     </div>
+    
+    <!-- 比重 -->
     <div class="form-group">
         <label>比重：</label>
-        <input type="number" step="0.001" id="density" placeholder="例：1.025">
+        <input type="number" step="0.001" id="density" placeholder="範例：1.015">
     </div>
+    
+    <!-- 溫度 -->
     <div class="form-group">
         <label>溫度：</label>
-        <input type="number" id="temp" placeholder="例：28">
+        <input type="number" id="temp" placeholder="範例：25">
     </div>
+    
+    <!-- 測量者 -->
     <div class="form-group">
         <label>測量者：</label>
-        <input type="text" id="user" placeholder="姓名">
+        <input type="text" id="user" placeholder="請輸入姓名">
     </div>
 
     <button class="btn btn-confirm" onclick="saveData()">確認送出</button>

@@ -136,7 +136,7 @@
 // 🔑 請務必替換成你自己的資訊（這裡只是範例，請改寫！）
 // ==============================================
 const GIST_ID = "933258a9b4a1e36b29d8613285ba8b72";
-const TOKEN  = "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";
+const TOKEN  = "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";
 // ==============================================
 
 const FILE_NAME = "data.json";
@@ -208,7 +208,7 @@ async function loadData() {
     setStatus("雲端載入中...");
     try {
         // 基礎參數檢查
-        if (!GIST_ID || GIST_ID === "933258a9b4a1e36b29d8613285ba8b72") {
+        if (!GIST_ID || GIST_ID === "你的Gist ID") {
             throw new Error("請先設定正確的 Gist ID");
         }
 
@@ -244,7 +244,7 @@ async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
         // 修正：只有Token未設定時才報錯
-        if (!TOKEN || TOKEN === "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") {
+        if (!TOKEN || TOKEN === "你的GitHub Personal Access Token") {
             throw new Error("請先設定 GitHub Token");
         }
         if (!GIST_ID) {

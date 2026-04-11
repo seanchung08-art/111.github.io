@@ -17,16 +17,18 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #333; padding: 8px; text-align: center; }
         th { background: #eaeaea; }
-        tr:hover { background: #f0f8ff; }
+        tr:hover { background: #f0f8ff; cursor: pointer; }
         .status { padding: 8px; border-radius: 5px; margin-bottom: 10px; }
         .success { background: #e8f5e9; color: #2e7d32; }
         .error { background: #ffebee; color: #c62828; }
         #otherUnit { display: none; }
+        .edit-info { color: #1a73e8; font-size:14px; margin-bottom:8px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（自動存 Google 試算表）</h2>
+    <h2>比重 / 溫度記錄表（可點擊編輯）</h2>
+    <div id="editTip" class="edit-info"></div>
     <div id="status" class="status">準備就緒</div>
 
     <div class="form-group">
@@ -71,8 +73,8 @@
         <input type="text" id="note" placeholder="請輸入備註">
     </div>
 
-    <button class="btn btn-confirm" onclick="saveData()">確認送出（自動存試算表）</button>
-    <button class="btn btn-clear" onclick="clearForm()">清空欄位</button>
+    <button class="btn btn-confirm" onclick="saveData()">確認送出（新增/更新）</button>
+    <button class="btn btn-clear" onclick="clearForm()">取消編輯</button>
 
     <table>
         <thead>
@@ -86,107 +88,124 @@
 
 <script>
 // ==============================================
-// 貼上你自己的 Google Apps Script 網址
+// 填入你的 Google Apps Script 網址
 // ==============================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxESCfBBBun3CVzjByuVXlp0RRe_wrguLS5vp3nK1-166GlON1r3e7FaIVLxAvkznmO/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHMcZ3-SP1L3sMDWuxOjpdCz3cxvgT8QEmU5wgFUa9bsBk7Dqf9GfsBAdWDaDhY6lx/exec";
 // ==============================================
 
 let records = [];
+let editIndex = -1; // 目前編輯中的行數
 
-function setStatus(msg, isError = false) {
+function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
     el.textContent = msg;
     el.className = isError ? "status error" : "status success";
 }
 
-// 初始化日期時間（民國年）
+function setEditTip(msg) {
+    document.getElementById("editTip").textContent = msg;
+}
+
+// 日期時間初始化
 function initDateTime() {
     const now = new Date();
     const rocYear = now.getFullYear() - 1911;
-    const month = now.getMonth() + 1;
+    const month = now.getMonth()+1;
     const day = now.getDate();
     const hour = now.getHours();
-    const minute = Math.floor(now.getMinutes() / 10) * 10;
+    const minute = Math.floor(now.getMinutes()/10)*10;
 
-    // 年
-    const y = document.getElementById("year");
-    for (let i = rocYear - 3; i <= rocYear + 1; i++) {
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = i;
-        if (i == rocYear) opt.selected = true;
+    const y=document.getElementById("year");
+    for(let i=rocYear-3; i<=rocYear+1; i++){
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=i;
+        if(i==rocYear) opt.selected=true;
         y.appendChild(opt);
     }
-    // 月
-    const m = document.getElementById("month");
-    for (let i = 1; i <= 12; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i == month) opt.selected = true;
+    const m=document.getElementById("month");
+    for(let i=1; i<=12; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==month) opt.selected=true;
         m.appendChild(opt);
     }
-    // 日
-    const d = document.getElementById("day");
-    for (let i = 1; i <= 31; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i == day) opt.selected = true;
+    const d=document.getElementById("day");
+    for(let i=1; i<=31; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==day) opt.selected=true;
         d.appendChild(opt);
     }
-    // 時
-    const h = document.getElementById("hour");
-    for (let i = 0; i < 24; i++) {
-        let v = String(i).padStart(2, "0");
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (i == hour) opt.selected = true;
+    const h=document.getElementById("hour");
+    for(let i=0; i<24; i++){
+        let v=String(i).padStart(2,"0");
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(i==hour) opt.selected=true;
         h.appendChild(opt);
     }
-    // 分
-    const min = document.getElementById("minute");
-    ["00", "10", "20", "30", "40", "50"].forEach(v => {
-        let opt = document.createElement("option");
-        opt.value = opt.textContent = v;
-        if (Number(v) == minute) opt.selected = true;
+    const min=document.getElementById("minute");
+    ["00","10","20","30","40","50"].forEach(v=>{
+        let opt=document.createElement("option");
+        opt.value=opt.textContent=v;
+        if(Number(v)==minute) opt.selected=true;
         min.appendChild(opt);
     });
 }
 
-// 本機表格顯示
+// 畫表格
 function renderTable() {
     const tb = document.getElementById("tableBody");
     tb.innerHTML = "";
-    records.forEach(item => {
+    records.forEach((item, idx) => {
         const tr = document.createElement("tr");
+        tr.onclick = () => {
+            editIndex = idx;
+            fillForm(item);
+            setEditTip(`✅ 正在編輯第 ${idx+1} 筆`);
+        };
         tr.innerHTML = `
-            <td>${item.date || ""}</td>
-            <td>${item.time || ""}</td>
-            <td>${item.unit || ""}</td>
-            <td>${item.density || ""}</td>
-            <td>${item.temp || ""}</td>
-            <td>${item.user || ""}</td>
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.unit}</td>
+            <td>${item.density}</td>
+            <td>${item.temp}</td>
+            <td>${item.user}</td>
             <td>${item.note || ""}</td>
         `;
         tb.appendChild(tr);
     });
 }
 
-// 傳送到 Google 試算表
-async function sendToSheet(data) {
-    try {
-        const res = await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify(data)
-        });
-        return true;
-    } catch (e) {
-        console.error(e);
-        return false;
+// 填入編輯
+function fillForm(item) {
+    const [y,m,d] = item.date.split("/");
+    const [h,i] = item.time.split(":");
+    document.getElementById("year").value = y;
+    document.getElementById("month").value = m;
+    document.getElementById("day").value = d;
+    document.getElementById("hour").value = h;
+    document.getElementById("minute").value = i;
+    document.getElementById("density").value = item.density;
+    document.getElementById("temp").value = item.temp;
+    document.getElementById("user").value = item.user;
+    document.getElementById("note").value = item.note || "";
+
+    let unitText = item.unit;
+    if (unitText.startsWith("其他(")) {
+        document.getElementById("unit").value = "其他";
+        document.getElementById("otherUnit").style.display = "inline-block";
+        document.getElementById("otherUnit").value = unitText.replace(/其他\((.*)\)/,"$1");
+    } else {
+        document.getElementById("unit").value = unitText;
+        document.getElementById("otherUnit").style.display = "none";
+        document.getElementById("otherUnit").value = "";
     }
 }
 
-// 儲存
+// 送出：新增 or 更新
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -197,49 +216,54 @@ async function saveData() {
     const user = document.getElementById("user").value.trim();
     const note = document.getElementById("note").value.trim();
 
-    if (unit === "其他" && !other) {
-        alert("請輸入自訂單元");
-        return;
-    }
-    if (!density || !temp || !user) {
-        alert("請填寫完整");
-        return;
-    }
+    if (unit === "其他" && !other) return alert("請輸入自訂單元");
+    if (!density || !temp || !user) return alert("請填寫完整");
     if (unit === "其他") unit = `其他(${other})`;
 
     const item = { date, time, unit, density, temp, user, note };
+    let payload;
 
-    // 本機清單最新在最上面
-    records.unshift(item);
-    renderTable();
-
-    // 自動存入 Google 試算表
-    const ok = await sendToSheet(item);
-
-    if (ok) {
-        setStatus("✅ 已成功儲存至 Google 試算表");
+    if (editIndex >= 0) {
+        // 更新模式
+        payload = { action: "update", rowIndex: editIndex, ...item };
+        records[editIndex] = item;
     } else {
-        setStatus("⚠️ 本機已記錄，試算表同步失敗", true);
+        // 新增模式
+        payload = { action: "add", ...item };
+        records.unshift(item);
     }
 
+    // 傳到試算表
+    const res = await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+
+    setStatus(editIndex >=0 ? "✅ 已更新該筆資料" : "✅ 已新增至試算表");
+    editIndex = -1;
+    setEditTip("");
+    renderTable();
     clearForm();
 }
 
-// 清空欄位
+// 清空
 function clearForm() {
     document.getElementById("density").value = "";
     document.getElementById("temp").value = "";
     document.getElementById("user").value = "";
     document.getElementById("note").value = "";
     document.getElementById("otherUnit").value = "";
+    document.getElementById("unit").value = "原液坑一";
+    document.getElementById("otherUnit").style.display = "none";
+    editIndex = -1;
+    setEditTip("");
 }
 
-// 其他單元切換
-document.getElementById("unit").addEventListener("change", function () {
+// 切換其他單元
+document.getElementById("unit").addEventListener("change", function(){
     document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-// 啟動
 window.onload = () => {
     initDateTime();
     renderTable();

@@ -13,6 +13,7 @@
         select, input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
         .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
         .btn-confirm { background: #4CAF50; }
+        .btn-refresh { background: #ff9800; }
         .btn-clear { background: #607D8B; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #333; padding: 8px; text-align: center; }
@@ -74,6 +75,7 @@
     </div>
 
     <button class="btn btn-confirm" onclick="saveData()">確認送出（新增/更新）</button>
+    <button class="btn btn-refresh" onclick="loadFromSheet()">重新整理（讀取試算表）</button>
     <button class="btn btn-clear" onclick="clearForm()">取消編輯</button>
 
     <table>
@@ -90,7 +92,7 @@
 // ==============================================
 // 填入你的 Google Apps Script 網址
 // ==============================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfd39PakIarF6otX8jqvETl4H6Vwkg1AX4UEMju99smk7K7-EfHC1rZqCcleCHsXBl/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxz48LkKOGNbQxqiePSdcsptGIh7ghCjS-_R_uyeDpcf8-wqWfzmoD8a4fOG9g8wUjF/exec";
 // ==============================================
 
 let records = [];
@@ -218,7 +220,7 @@ async function loadFromSheet() {
         if(json.status === "ok") {
             records = json.data || [];
             renderTable();
-            setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
+            setStatus(`✅ 已重新載入最新 ${records.length} 筆資料`);
         } else {
             setStatus("⚠️ 載入失敗", true);
         }

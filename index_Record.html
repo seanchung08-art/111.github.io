@@ -90,10 +90,10 @@
 
 <script>
 // ==============================================
-// 已幫你填入最新有效資訊
+// 請替換成你剛生成的新 Token！
 // ==============================================
 const GIST_ID = "f59a858db670f0a698b473ad9281b11b";
-const TOKEN  = "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";
+const TOKEN  = "你的新 Token"; // ← 替換成你的新 Token
 // ==============================================
 
 const FILE_NAME = "data.json";
@@ -160,7 +160,7 @@ function initDateTime() {
     });
 }
 
-// 載入
+// 載入（保留公開讀取，無需 Token）
 async function loadData() {
     setStatus("雲端載入中...");
     try {
@@ -178,16 +178,16 @@ async function loadData() {
     }
 }
 
-// 修正：雲端儲存函式（解決401認證錯誤）
+// 修正後的儲存函數，完全符合 GitHub API 規範
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        // 構建標準的GitHub Gist更新請求
         const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `token ${TOKEN}`,
                 'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json'
             },
             body: JSON.stringify({
                 files: {
@@ -200,7 +200,7 @@ async function saveToGist() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(`${response.status}：${errorData.message || '權限驗證失敗'}`);
+            throw new Error(`${response.status}: ${errorData.message || '權限驗證失敗'}`);
         }
 
         setStatus('✅ 雲端儲存成功！');

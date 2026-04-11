@@ -90,12 +90,47 @@
 
 <script>
 // ======================
-// 請替換成你自己的 Google Apps Script 部署網址
+// 請替換成你自己的 Google Apps Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbwqHKAORCbeF8iedyq_HtNB6nL1oda7HU9AlHhx-8uvWOip99hSWjn5DmuQMOS2rCET/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzqS2DWymYRSvn9c3w_pYDse0YOTffqIJEDsTrQXdwA_uhs9m8EjzZcLcf9liqrYLg/exec";
 
 let records = [];
 let editIndex = -1;
+
+// 輔助函數：格式化日期為 115/04/10
+const formatDate = (input) => {
+    if (!input) return "";
+    // 如果是 ISO 格式（如 0115-04-10T15:54:00.000Z）
+    if (typeof input === "string" && input.includes("T")) {
+        const date = new Date(input);
+        const rocYear = date.getFullYear() - 1911;
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${rocYear}/${month}/${day}`;
+    }
+    // 如果是已有的 115/04/10 格式
+    if (typeof input === "string" && input.includes("/")) {
+        return input;
+    }
+    return "";
+};
+
+// 輔助函數：格式化時間為 15:54
+const formatTime = (input) => {
+    if (!input) return "";
+    // 如果是 1899-12-30T10:50:00.000Z 格式
+    if (typeof input === "string" && input.includes("1899")) {
+        const date = new Date(input);
+        const hour = String(date.getHours()).padStart(2, "0");
+        const minute = String(date.getMinutes()).padStart(2, "0");
+        return `${hour}:${minute}`;
+    }
+    // 如果是已有的 15:54 格式
+    if (typeof input === "string" && input.includes(":")) {
+        return input;
+    }
+    return "";
+};
 
 // 狀態提示
 const setStatus = (msg, err=false) => {
@@ -166,38 +201,58 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染（直接用索引取值，避免 undefined）
+// 表格渲染（讀取時自動格式化）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
-  tb.innerHTML = records.map((row, idx) => `
+  tb.innerHTML = records.map((row, idx) => {
+    const formattedDate = formatDate(row[0]);
+    const formattedTime = formatTime(row[1]);
+    return `
     <tr onclick="editRow(${idx})">
-      <td>${row[0] || ""}</td>
-      <td>${row[1] || ""}</td>
+      <td>${formattedDate}</td>
+      <td>${formattedTime}</td>
       <td>${row[2] || ""}</td>
       <td>${row[3] || ""}</td>
       <td>${row[4] || ""}</td>
       <td>${row[5] || ""}</td>
       <td>${row[6] || ""}</td>
     </tr>
-  `).join("");
+  `}).join("");
 };
 
-// 編輯列
+// 編輯列（讀取時自動解析日期時間）
 const editRow = (idx) => {
   editIndex = idx;
   const row = records[idx];
   if (!row) return;
   
-  const [dateStr, timeStr, unitStr, densityStr, tempStr, userStr, noteStr] = row;
-  const [y, m, d] = (dateStr || "").split("/");
-  const [h, mi] = (timeStr || "").split(":");
+  const rawDate = row[0];
+  const rawTime = row[1];
+  const unitStr = row[2];
+  const densityStr = row[3];
+  const tempStr = row[4];
+  const userStr = row[5];
+  const noteStr = row[6];
+
+  // 解析日期
+  let formattedDate = formatDate(rawDate);
+  let [y, m, d] = formattedDate.split("/");
+  y = y || (new Date().getFullYear() - 1911);
+  m = m || String(new Date().getMonth() + 1).padStart(2, "0");
+  d = d || String(new Date().getDate()).padStart(2, "0");
+
+  // 解析時間
+  let formattedTime = formatTime(rawTime);
+  let [h, mi] = formattedTime.split(":");
+  h = h || String(new Date().getHours()).padStart(2, "0");
+  mi = mi || "00";
 
   // 填入表單
-  document.getElementById("year").value = y || new Date().getFullYear() - 1911;
-  document.getElementById("month").value = m || String(new Date().getMonth() + 1).padStart(2, "0");
-  document.getElementById("day").value = d || String(new Date().getDate()).padStart(2, "0");
-  document.getElementById("hour").value = h || String(new Date().getHours()).padStart(2, "0");
-  document.getElementById("minute").value = mi || "00";
+  document.getElementById("year").value = y;
+  document.getElementById("month").value = m;
+  document.getElementById("day").value = d;
+  document.getElementById("hour").value = h;
+  document.getElementById("minute").value = mi;
   document.getElementById("density").value = densityStr || "";
   document.getElementById("temp").value = tempStr || "";
   document.getElementById("user").value = userStr || "";
@@ -249,7 +304,7 @@ const saveData = async () => {
   const hour = document.getElementById("hour").value;
   const minute = document.getElementById("minute").value;
 
-  // 強制格式化為 115/04/05 和 15:30
+  // 強制格式化為 115/04/10 和 15:54
   const dateStr = `${year}/${month}/${day}`;
   const timeStr = `${hour}:${minute}`;
 

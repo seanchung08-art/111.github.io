@@ -178,30 +178,37 @@ async function loadData() {
     }
 }
 
-// 儲存（修正版：Bearer + 正確Header）
+// 修正：雲端儲存函式（解決401認證錯誤）
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        const res=await fetch(`https://api.github.com/gists/${GIST_ID}`,{
-            method:"PATCH",
-            headers:{
-                "Authorization": `Bearer ${TOKEN}`,
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "X-GitHub-Api-Version": "2022-11-28"
+        // 構建標準的GitHub Gist更新請求
+        const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `token ${TOKEN}`,
+                'Content-Type': 'application/json',
             },
-            body:JSON.stringify({
-                files:{ [FILE_NAME]:{ content:JSON.stringify(records,null,2) } }
+            body: JSON.stringify({
+                files: {
+                    [FILE_NAME]: {
+                        content: JSON.stringify(records, null, 2)
+                    }
+                }
             })
         });
-        if(!res.ok) {
-            const err=await res.text();
-            throw new Error(`儲存失敗 ${res.status}`);
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`${response.status}：${errorData.message || '權限驗證失敗'}`);
         }
-        setStatus("✅ 雲端儲存成功");
-    } catch(e) {
-        setStatus(`❌ ${e.message}`, true);
-        console.error(e);
+
+        setStatus('✅ 雲端儲存成功！');
+        return true;
+    } catch (error) {
+        setStatus(`❌ 儲存失敗：${error.message}`, true);
+        console.error('Gist儲存錯誤:', error);
+        return false;
     }
 }
 

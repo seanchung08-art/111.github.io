@@ -9,42 +9,41 @@
         body { margin: 10px; background: #f5f5f5; }
         .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 8px; }
         
-        /* 核心樣式：還原圖片布局，標籤不換行 */
         .form-group { 
             margin: 10px 0; 
             display: flex; 
             align-items: center; 
             gap: 8px; 
-            white-space: nowrap; /* 關鍵：禁止文字換行 */
+            white-space: nowrap;
         }
         
         label { 
             font-weight: bold; 
-            min-width: fit-content; /* 關鍵：標籤寬度依內容自動撐開 */
+            min-width: fit-content;
             margin-right: 5px;
         }
 
-        /* 日期時間下拉選單寬度 */
-        #year { width: 70px; }
-        #month, #day { width: 60px; }
-        #hour, #minute { width: 60px; }
-
-        /* 單元、自訂單元 寬度 */
-        #unit { width: 180px; }
-        #otherUnit { width: 160px; display: none; }
-
-        /* 比重、溫度、測量者 輸入寬度 */
-        #density { width: 180px; }
-        #temp { width: 180px; }
-        #user { width: 180px; }
-
+        /* 自動適應內容寬度 + 不變形 */
         select, input { 
             padding: 6px; 
             border: 1px solid #ccc; 
             border-radius: 4px; 
-            font-size: 16px; /* 手機點選最佳尺寸 */
+            font-size: 16px;
+            width: fit-content;
+            min-width: unset;
+            flex: none;
         }
-        
+
+        /* 微調美觀 */
+        #year { width: 75px; }
+        #month, #day { width: 60px; }
+        #hour, #minute { width: 60px; }
+        #unit { width: auto; min-width: 170px; }
+        #otherUnit { width: 160px; display: none; }
+        #density { width: 120px; }
+        #temp { width: 100px; }
+        #user { width: 140px; }
+
         .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
         .btn-confirm { background: #4CAF50; }
         .btn-delete { background: #f44336; }
@@ -64,19 +63,16 @@
     <h2>比重 / 溫度記錄表（手機電腦同步）</h2>
     <div id="status" class="status">啟動中...</div>
 
-    <!-- 量測日期 -->
     <div class="form-group">
         <label>量測日期：</label>
         <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
     </div>
     
-    <!-- 量測時間 -->
     <div class="form-group">
         <label>量測時間：</label>
         <select id="hour"></select> : <select id="minute"></select>
     </div>
     
-    <!-- 單元名稱 -->
     <div class="form-group">
         <label>單元名稱：</label>
         <select id="unit">
@@ -95,22 +91,19 @@
         <input type="text" id="otherUnit" placeholder="自訂單元">
     </div>
     
-    <!-- 比重 -->
     <div class="form-group">
         <label>比重：</label>
-        <input type="number" step="0.001" id="density" placeholder="範例：1.015">
+        <input type="number" step="0.001" id="density" placeholder="例：1.025">
     </div>
     
-    <!-- 溫度 -->
     <div class="form-group">
         <label>溫度：</label>
-        <input type="number" id="temp" placeholder="範例：25">
+        <input type="number" id="temp" placeholder="例：28">
     </div>
     
-    <!-- 測量者 -->
     <div class="form-group">
         <label>測量者：</label>
-        <input type="text" id="user" placeholder="請輸入姓名">
+        <input type="text" id="user" placeholder="姓名">
     </div>
 
     <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
@@ -144,38 +137,55 @@ function setStatus(msg, isError = false) {
     el.className = isError ? "status error" : "status success";
 }
 
+// 初始化日期時間 + 自動帶入當下時間
 function initDateTime() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+    const currentHour = now.getHours();
+    const currentMinute = Math.floor(now.getMinutes() / 10) * 10;
+
     const y = document.getElementById("year");
-    for (let i = 110; i <= 120; i++) {
+    for (let i = currentYear - 5; i <= currentYear + 1; i++) {
         let opt = document.createElement("option");
         opt.value = opt.textContent = i;
+        if (i === currentYear) opt.selected = true;
         y.appendChild(opt);
     }
+
     const m = document.getElementById("month");
     for (let i = 1; i <= 12; i++) {
         let v = String(i).padStart(2, "0");
         let opt = document.createElement("option");
         opt.value = opt.textContent = v;
+        if (i === currentMonth) opt.selected = true;
         m.appendChild(opt);
     }
+
     const d = document.getElementById("day");
     for (let i = 1; i <= 31; i++) {
         let v = String(i).padStart(2, "0");
         let opt = document.createElement("option");
         opt.value = opt.textContent = v;
+        if (i === currentDay) opt.selected = true;
         d.appendChild(opt);
     }
+
     const h = document.getElementById("hour");
     for (let i = 0; i < 24; i++) {
         let v = String(i).padStart(2, "0");
         let opt = document.createElement("option");
         opt.value = opt.textContent = v;
+        if (i === currentHour) opt.selected = true;
         h.appendChild(opt);
     }
+
     const min = document.getElementById("minute");
     ["00", "10", "20", "30", "40", "50"].forEach(v => {
         let opt = document.createElement("option");
         opt.value = opt.textContent = v;
+        if (Number(v) === currentMinute) opt.selected = true;
         min.appendChild(opt);
     });
 }

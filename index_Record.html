@@ -10,7 +10,22 @@
         .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 8px; }
         .form-group { margin: 10px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         label { min-width: 85px; font-weight: bold; }
-        select, input { padding: 6px; flex: 1; min-width: 120px; }
+
+        /* 日期時間下拉選單寬度優化 */
+        #year { width: 70px; flex: none; }
+        #month, #day { width: 60px; flex: none; }
+        #hour, #minute { width: 60px; flex: none; }
+
+        /* 單元、自訂單元 適合字數 */
+        #unit { width: 180px; flex: none; }
+        #otherUnit { width: 160px; flex: none; }
+
+        /* 比重、溫度、測量者 輸入寬度優化 */
+        #density { width: 120px; flex: none; }
+        #temp { width: 100px; flex: none; }
+        #user { width: 140px; flex: none; }
+
+        select, input { padding: 6px; border:1px solid #ccc; border-radius:4px; }
         .btn { padding: 8px 14px; margin: 5px 3px; border: none; border-radius: 5px; color: white; cursor: pointer; }
         .btn-confirm { background: #4CAF50; }
         .btn-delete { background: #f44336; }
@@ -87,7 +102,7 @@
 <script>
 // ===================== 請填寫你的資訊 =====================
 const GIST_ID = "933258a9b4a1e36b29d8613285ba8b72";
-const TOKEN  = "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";
+const TOKEN  = "ghp_你真的Token";
 // ==========================================================
 
 const FILE_NAME = "data.json";
@@ -145,20 +160,17 @@ async function loadData() {
         
         const gist = await response.json();
         
-        // 安全檢查：確保檔案存在
         if (!gist.files || !gist.files[FILE_NAME]) {
             throw new Error("Gist 中未找到 data.json 檔案");
         }
         
         const content = gist.files[FILE_NAME].content || "[]";
-        // 安全解析 JSON
         try {
             records = JSON.parse(content);
         } catch {
             records = [];
         }
         
-        // 確保是陣列
         if (!Array.isArray(records)) records = [];
         
         renderTable();
@@ -288,7 +300,7 @@ function exportCSV() {
 }
 
 document.getElementById("unit").addEventListener("change", function () {
-    document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline" : "none";
+    document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
 window.onload = () => { initDateTime(); loadData(); };

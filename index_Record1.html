@@ -90,9 +90,9 @@
 
 <script>
 // ======================
-// 你的 Google Script 網址
+// 貼上你的 Google Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxxOfjgFZE1cZz0R-B4H1CZK4C1833A3ZR4wtZCd0PhGtafopaDkcgHoeP6BdbyvIj6/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxrRmEjPx2Le4ueFpbZfX4l-R8G9rZ00c_wYp4NSzP5ZvWFWnWVMHh8QL6k4oTnYSjd/exec";
 
 let records = [];
 let editIndex = -1;
@@ -105,58 +105,57 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間初始化（極速版）
+// 日期時間初始化
 const initDateTime = () => {
   const now = new Date();
   const roc = now.getFullYear() - 1911;
-  const fill = (n) => String(n).padStart(2,"0");
+  const fill = n => String(n).padStart(2, "0");
 
   // 年
   const y = document.getElementById("year");
   for(let i=roc-2;i<=roc+1;i++){
     const opt = document.createElement("option");
-    opt.value=opt.textContent=i;
-    if(i===roc) opt.selected=true;
+    opt.value = opt.textContent = i;
+    if(i === roc) opt.selected = true;
     y.appendChild(opt);
   }
   // 月
   const m = document.getElementById("month");
   for(let i=1;i<=12;i++){
-    const v=fill(i);
-    const opt=document.createElement("option");
-    opt.value=opt.textContent=v;
-    if(i===now.getMonth()+1) opt.selected=true;
+    const v = fill(i);
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = v;
+    if(i === now.getMonth()+1) opt.selected = true;
     m.appendChild(opt);
   }
   // 日
   const d = document.getElementById("day");
   for(let i=1;i<=31;i++){
-    const v=fill(i);
-    const opt=document.createElement("option");
-    opt.value=opt.textContent=v;
-    if(i===now.getDate()) opt.selected=true;
+    const v = fill(i);
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = v;
+    if(i === now.getDate()) opt.selected = true;
     d.appendChild(opt);
   }
   // 時
   const h = document.getElementById("hour");
   for(let i=0;i<24;i++){
-    const v=fill(i);
-    const opt=document.createElement("option");
-    opt.value=opt.textContent=v;
-    if(i===now.getHours()) opt.selected=true;
+    const v = fill(i);
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = v;
+    if(i === now.getHours()) opt.selected = true;
     h.appendChild(opt);
   }
   // 分
   const min = document.getElementById("minute");
   ["00","10","20","30","40","50"].forEach(v=>{
-    const opt=document.createElement("option");
-    opt.value=opt.textContent=v;
-    if(v===fill(Math.floor(now.getMinutes()/10)*10)) opt.selected=true;
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = v;
     min.appendChild(opt);
   });
 };
 
-// 表格渲染（極速）
+// 表格渲染
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((item,i)=>`
@@ -178,37 +177,39 @@ const editRow = (i) => {
   const item = records[i];
   const [y,m,d] = item.date.split("/");
   const [h,mi] = item.time.split(":");
-  document.getElementById("year").value=y;
-  document.getElementById("month").value=m;
-  document.getElementById("day").value=d;
-  document.getElementById("hour").value=h;
-  document.getElementById("minute").value=mi;
-  document.getElementById("density").value=item.density;
-  document.getElementById("temp").value=item.temp;
-  document.getElementById("user").value=item.user;
-  document.getElementById("note").value=item.note||"";
+  
+  document.getElementById("year").value = y;
+  document.getElementById("month").value = m;
+  document.getElementById("day").value = d;
+  document.getElementById("hour").value = h;
+  document.getElementById("minute").value = mi;
+  
+  document.getElementById("density").value = item.density;
+  document.getElementById("temp").value = item.temp;
+  document.getElementById("user").value = item.user;
+  document.getElementById("note").value = item.note || "";
 
   const unit = item.unit;
   if(unit.startsWith("其他(")){
-    document.getElementById("unit").value="其他";
-    document.getElementById("otherUnit").style.display="inline-block";
-    document.getElementById("otherUnit").value=unit.replace(/其他\((.*)\)/,"$1");
+    document.getElementById("unit").value = "其他";
+    document.getElementById("otherUnit").style.display = "inline-block";
+    document.getElementById("otherUnit").value = unit.replace(/其他\((.*)\)/,"$1");
   }else{
-    document.getElementById("unit").value=unit;
-    document.getElementById("otherUnit").style.display="none";
-    document.getElementById("otherUnit").value="";
+    document.getElementById("unit").value = unit;
+    document.getElementById("otherUnit").style.display = "none";
+    document.getElementById("otherUnit").value = "";
   }
   setEditTip(`編輯第 ${i+1} 筆`);
 };
 
-// 讀取試算表（極速 + 民國日期格式）
+// 讀取試算表
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
     const res = await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"load"})});
     const json = await res.json();
-    if(json.status==="ok"){
-      records=json.data;
+    if(json.status === "ok"){
+      records = json.data;
       renderTable();
       setStatus(`✅ 已載入 ${records.length} 筆`);
     }else{
@@ -219,10 +220,20 @@ const loadFromSheet = async () => {
   }
 };
 
-// 儲存
+// ================================
+// 【關鍵】提交直接寫入 115/04/10 + 15:00
+// ================================
 const saveData = async () => {
-  const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
-  const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
+  const Y = document.getElementById("year").value;
+  const M = document.getElementById("month").value;
+  const D = document.getElementById("day").value;
+  const HH = document.getElementById("hour").value;
+  const MM = document.getElementById("minute").value;
+
+  // 強制標準格式
+  const date = `${Y}/${M}/${D}`;    // 115/04/10
+  const time = `${HH}:${MM}`;      // 15:00
+
   let unit = document.getElementById("unit").value;
   const other = document.getElementById("otherUnit").value.trim();
   const density = document.getElementById("density").value.trim();
@@ -230,13 +241,13 @@ const saveData = async () => {
   const user = document.getElementById("user").value.trim();
   const note = document.getElementById("note").value.trim();
 
-  if(unit==="其他" && !other) return alert("請輸入自訂單元");
-  if(!density||!temp||!user) return alert("請填寫完整");
-  if(unit==="其他") unit=`其他(${other})`;
+  if(unit === "其他" && !other) return alert("請輸入自訂單元");
+  if(!density || !temp || !user) return alert("請填寫完整");
+  if(unit === "其他") unit = `其他(${other})`;
 
-  const data = {date,time,unit,density,temp,user,note};
-  const action = editIndex>=0 ? "update" : "add";
-  if(action==="update") data.rowIndex=editIndex;
+  const data = { date, time, unit, density, temp, user, note };
+  const action = editIndex >= 0 ? "update" : "add";
+  if(action === "update") data.rowIndex = editIndex;
 
   await fetch(API_URL,{method:"POST",body:JSON.stringify({action,...data})});
   await loadFromSheet();
@@ -245,24 +256,24 @@ const saveData = async () => {
 
 // 清空
 const clearForm = () => {
-  document.getElementById("density").value="";
-  document.getElementById("temp").value="";
-  document.getElementById("user").value="";
-  document.getElementById("note").value="";
-  document.getElementById("otherUnit").value="";
-  document.getElementById("unit").value="原液坑一";
-  document.getElementById("otherUnit").style.display="none";
-  editIndex=-1;
+  document.getElementById("density").value = "";
+  document.getElementById("temp").value = "";
+  document.getElementById("user").value = "";
+  document.getElementById("note").value = "";
+  document.getElementById("otherUnit").value = "";
+  document.getElementById("unit").value = "原液坑一";
+  document.getElementById("otherUnit").style.display = "none";
+  editIndex = -1;
   setEditTip("");
 };
 
 // 其他單元
 document.getElementById("unit").addEventListener("change",function(){
-  document.getElementById("otherUnit").style.display=this.value==="其他"?"inline-block":"none";
+  document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
 // 啟動
-window.onload=async()=>{initDateTime();await loadFromSheet();};
+window.onload = async () => { initDateTime(); await loadFromSheet(); };
 </script>
 </body>
 </html>

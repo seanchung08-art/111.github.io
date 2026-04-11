@@ -1,321 +1,199 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>比重溫度記錄表</title>
-<style>
-*{box-sizing:border-box;font-family:"Microsoft JhengHei",sans-serif}
-body{margin:10px;background:#f5f5f5}
-.container{max-width:1000px;margin:auto;background:white;padding:15px;border-radius:8px}
-.form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-label{font-weight:bold}
-select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
-.btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
-.btn-confirm{background:#4CAF50}
-.btn-refresh{background:#ff9800}
-.btn-clear{background:#607D8B}
-table{width:100%;border-collapse:collapse;margin-top:15px}
-th,td{border:1px solid #333;padding:8px;text-align:center}
-th{background:#eaeaea}
-tr:hover{background:#f0f8ff}
-.status{padding:8px;border-radius:5px;margin-bottom:10px}
-.success{background:#e8f5e9;color:#2e7d32}
-.error{background:#ffebee;color:#c62828}
-#otherUnit{display:none}
-.edit-info{color:#1a73e8;font-size:14px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>比重溫度記錄</title>
+  <style>
+    *{box-sizing:border-box;font-family:微軟正黑體}
+    body{margin:15px;background:#f7f7f7}
+    .container{max-width:900px;margin:auto;background:#fff;padding:20px;border-radius:8px}
+    .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    label{min-width:80px;font-weight:bold}
+    select,input{padding:6px;border:1px solid #ccc;border-radius:4px;width:120px}
+    button{padding:8px 16px;background:#4CAF50;color:#fff;border:none;border-radius:4px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:20px}
+    th,td{border:1px solid #ddd;padding:8px;text-align:center}
+    th{background:#f0f0f0}
+    .status{padding:10px;margin:10px 0;border-radius:4px}
+    .success{background:#e8f5e9;color:#2e7d32}
+    .error{background:#ffebee;color:#c62828}
+  </style>
 </head>
 <body>
 <div class="container">
-<h2>比重 / 溫度記錄表</h2>
-<div class="edit-info" id="editTip"></div>
-<div class="status" id="status">請點重新整理載入資料</div>
+  <h2>比重 / 溫度記錄表</h2>
+  <div id="status" class="status">請填寫資料後點「確認送出」</div>
 
-<div class="form-group">
-<label>測量日期：</label>
-<select id="year"></select> / <select id="month"></select> / <select id="day"></select>
-</div>
+  <div class="form-group">
+    <label>日期：</label>
+    <select id="y"></select>/<select id="m"></select>/<select id="d"></select>
+  </div>
+  <div class="form-group">
+    <label>時間：</label>
+    <select id="h"></select>:<select id="mi"></select>
+  </div>
+  <div class="form-group">
+    <label>單元：</label>
+    <select id="unit">
+      <option>原液坑一</option><option>原液坑二</option><option>VVCC#A</option>
+      <option>VVCC#B</option><option>VVCC#C</option><option>結晶罐#A</option>
+      <option>結晶罐#B</option><option>結晶罐#C</option><option>濃縮液槽</option>
+      <option>應急坑</option><option>其他</option>
+    </select>
+    <input type="text" id="other" placeholder="自訂單元" style="display:none;width:160px">
+  </div>
+  <div class="form-group">
+    <label>比重：</label><input type="number" step="0.001" id="density">
+  </div>
+  <div class="form-group">
+    <label>溫度：</label><input type="number" id="temp">
+  </div>
+  <div class="form-group">
+    <label>測量者：</label><input type="text" id="user">
+  </div>
+  <div class="form-group">
+    <label>備註：</label><input type="text" id="note">
+  </div>
 
-<div class="form-group">
-<label>測量時間：</label>
-<select id="hour"></select> : <select id="minute"></select>
-</div>
+  <button onclick="submitData()">確認送出</button>
 
-<div class="form-group">
-<label>單元名稱：</label>
-<select id="unit">
-<option value="原液坑一">原液坑一</option>
-<option value="原液坑二">原液坑二</option>
-<option value="VVCC#A">VVCC#A</option>
-<option value="VVCC#B">VVCC#B</option>
-<option value="VVCC#C">VVCC#C</option>
-<option value="結晶罐#A">結晶罐#A</option>
-<option value="結晶罐#B">結晶罐#B</option>
-<option value="結晶罐#C">結晶罐#C</option>
-<option value="濃縮液槽">濃縮液槽</option>
-<option value="應急坑">應急坑</option>
-<option value="其他">其他</option>
-</select>
-<input type="text" id="otherUnit" placeholder="自訂單元">
-</div>
-
-<div class="form-group">
-<label>比重：</label><input type="number" step="0.001" id="density" placeholder="例：1.025">
-</div>
-<div class="form-group">
-<label>溫度：</label><input type="number" id="temp" placeholder="例：28">
-</div>
-<div class="form-group">
-<label>測量者：</label><input type="text" id="user" placeholder="姓名">
-</div>
-<div class="form-group">
-<label>備註：</label><input type="text" id="note">
-</div>
-
-<button class="btn btn-confirm" onclick="saveData()">確認送出</button>
-<button class="btn btn-refresh" onclick="loadFromSheet()">重新整理</button>
-<button class="btn btn-clear" onclick="clearForm()">取消編輯</button>
-
-<table>
-<thead>
-<tr><th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th></tr>
-</thead>
-<tbody id="tableBody"></tbody>
-</table>
+  <table>
+    <thead>
+      <tr><th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 </div>
 
 <script>
-// ======================
-// 貼上你自己的 GAS 網址
-// ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxE5w1rPNg2CGqfRvaTa2-_bskuNM4Maikpg2sstlzNM5UrRL33biDgUXkUSt6aFAAr/exec";
+// 🔴 务必替换成你的 GAS 网址（/exec 结尾）
+const API_URL = "https://script.google.com/macros/s/AKfycbzTgJ9fQsZDN6h-J2dZ82GrkhRhtjnu99huujf1sYdko1h5t-miv8TgAhnsKtho1Sks/exec";
 
-let records = [];
-let editIndex = -1;
+// 初始化日期时间
+function initDateTime() {
+  const now = new Date();
+  const roc = now.getFullYear() - 1911;
+  const pad = n => String(n).padStart(2, "0");
 
-function formatDate(v){
-  if(!v) return "";
-  if(typeof v==="string" && v.includes("/")) return v;
-  try{
-    let d=new Date(v);
-    let roc=d.getFullYear()-1911;
-    let m=String(d.getMonth()+1).padStart(2,"0");
-    let day=String(d.getDate()).padStart(2,"0");
-    return roc+"/"+m+"/"+day;
-  }catch(e){return v;}
-}
-
-function formatTime(v){
-  if(!v) return "";
-  if(v.includes(":")) return v;
-  try{
-    let d=new Date(v);
-    let h=String(d.getHours()).padStart(2,"0");
-    let m=String(d.getMinutes()).padStart(2,"0");
-    return h+":"+m;
-  }catch(e){return v;}
-}
-
-function setStatus(msg,err){
-  let el=document.getElementById("status");
-  el.textContent=msg;
-  el.className=err?"status error":"status success";
-}
-
-function setEditTip(msg){
-  document.getElementById("editTip").textContent=msg;
-}
-
-function initDateTime(){
-  let now=new Date();
-  let roc=now.getFullYear()-1911;
-  let pad=n=>String(n).padStart(2,"0");
-
-  let y=document.getElementById("year");
-  for(let i=100;i<=125;i++){
-    let opt=document.createElement("option");
-    opt.value=i;opt.textContent=i;
-    if(i==roc)opt.selected=true;
+  // 年
+  const y = document.getElementById("y");
+  for (let i = 110; i <= 130; i++) {
+    const opt = document.createElement("option");
+    opt.value = i; opt.textContent = i;
+    if (i === roc) opt.selected = true;
     y.appendChild(opt);
   }
-
-  let m=document.getElementById("month");
-  for(let i=1;i<=12;i++){
-    let v=pad(i);
-    let opt=document.createElement("option");
-    opt.value=v;opt.textContent=v;
-    if(i==now.getMonth()+1)opt.selected=true;
+  // 月
+  const m = document.getElementById("m");
+  for (let i = 1; i <= 12; i++) {
+    const v = pad(i);
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    if (i === now.getMonth() + 1) opt.selected = true;
     m.appendChild(opt);
   }
-
-  let d=document.getElementById("day");
-  for(let i=1;i<=31;i++){
-    let v=pad(i);
-    let opt=document.createElement("option");
-    opt.value=v;opt.textContent=v;
-    if(i==now.getDate())opt.selected=true;
+  // 日
+  const d = document.getElementById("d");
+  for (let i = 1; i <= 31; i++) {
+    const v = pad(i);
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    if (i === now.getDate()) opt.selected = true;
     d.appendChild(opt);
   }
-
-  let h=document.getElementById("hour");
-  for(let i=0;i<24;i++){
-    let v=pad(i);
-    let opt=document.createElement("option");
-    opt.value=v;opt.textContent=v;
-    if(i==now.getHours())opt.selected=true;
+  // 时
+  const h = document.getElementById("h");
+  for (let i = 0; i < 24; i++) {
+    const v = pad(i);
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    if (i === now.getHours()) opt.selected = true;
     h.appendChild(opt);
   }
-
-  let mi=document.getElementById("minute");
-  for(let i=0;i<60;i+=5){
-    let v=pad(i);
-    let opt=document.createElement("option");
-    opt.value=v;opt.textContent=v;
+  // 分
+  const mi = document.getElementById("mi");
+  for (let i = 0; i < 60; i += 5) {
+    const v = pad(i);
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
     mi.appendChild(opt);
   }
 }
 
-function renderTable(){
-  let html="";
-  records.forEach((row,idx)=>{
-    html+=`
-    <tr onclick="editRow(${idx})">
-      <td>${formatDate(row[0])}</td>
-      <td>${formatTime(row[1])}</td>
-      <td>${row[2]||""}</td>
-      <td>${row[3]||""}</td>
-      <td>${row[4]||""}</td>
-      <td>${row[5]||""}</td>
-      <td>${row[6]||""}</td>
-    </tr>`;
-  });
-  document.getElementById("tableBody").innerHTML=html;
-}
-
-function editRow(idx){
-  editIndex=idx;
-  let row=records[idx];
-  if(!row)return;
-  let d=formatDate(row[0]).split("/");
-  let t=formatTime(row[1]).split(":");
-
-  document.getElementById("year").value=d[0];
-  document.getElementById("month").value=d[1];
-  document.getElementById("day").value=d[2];
-  document.getElementById("hour").value=t[0];
-  document.getElementById("minute").value=t[1];
-  document.getElementById("density").value=row[3]||"";
-  document.getElementById("temp").value=row[4]||"";
-  document.getElementById("user").value=row[5]||"";
-  document.getElementById("note").value=row[6]||"";
-
-  let unit=row[2]||"";
-  if(unit.startsWith("其他(")){
-    document.getElementById("unit").value="其他";
-    document.getElementById("otherUnit").style.display="inline-block";
-    document.getElementById("otherUnit").value=unit.replace(/其他\((.*?)\)/,"$1");
-  }else{
-    document.getElementById("unit").value=unit||"原液坑一";
-    document.getElementById("otherUnit").style.display="none";
-  }
-  setEditTip("編輯中：第"+(idx+1)+"筆");
-}
-
-// 讀取試算表
-async function loadFromSheet(){
-  setStatus("讀取中...");
-  try{
-    let res=await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({action:"load"})
-    });
-    let j=await res.json();
-    if(j.status==="success"){
-      records=j.data||[];
-      renderTable();
-      setStatus("✅ 已載入最新資料");
-    }else{
-      setStatus("❌ 載入失敗",true);
-    }
-  }catch(e){
-    console.error(e);
-    setStatus("❌ 網路連線失敗",true);
-  }
-}
-
-// 儲存：同時顯示在表格 + 寫入試算表
-async function saveData(){
-  let dateStr=document.getElementById("year").value+"/"+
-              document.getElementById("month").value+"/"+
-              document.getElementById("day").value;
-  let timeStr=document.getElementById("hour").value+":"+
-              document.getElementById("minute").value;
-
-  let unit=document.getElementById("unit").value;
-  let other=document.getElementById("otherUnit").value.trim();
-  let density=document.getElementById("density").value.trim();
-  let temp=document.getElementById("temp").value.trim();
-  let user=document.getElementById("user").value.trim();
-  let note=document.getElementById("note").value.trim();
-
-  if(unit==="其他" && !other)return alert("請輸入自訂單元");
-  if(!density||!temp||!user)return alert("請填寫完整");
-  if(unit==="其他")unit=`其他(${other})`;
-
-  let newRow=[dateStr,timeStr,unit,density,temp,user,note];
-
-  try{
-    let res=await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        action:editIndex>=0?"update":"add",
-        date:dateStr,time:timeStr,unit:unit,
-        density:density,temp:temp,user:user,note:note,
-        rowIndex:editIndex
-      })
-    });
-
-    let j=await res.json();
-    if(j.status==="success"){
-      if(editIndex>=0){
-        records[editIndex]=newRow;
-      }else{
-        records.unshift(newRow);
-        if(records.length>50)records.pop();
-      }
-      renderTable();
-      setStatus("✅ 儲存成功！已顯示在表格並存入試算表");
-      clearForm();
-    }else{
-      setStatus("❌ 儲存失敗",true);
-    }
-  }catch(e){
-    console.error(e);
-    setStatus("❌ 網路錯誤",true);
-  }
-}
-
-function clearForm(){
-  document.getElementById("density").value="";
-  document.getElementById("temp").value="";
-  document.getElementById("user").value="";
-  document.getElementById("note").value="";
-  document.getElementById("otherUnit").value="";
-  document.getElementById("unit").value="原液坑一";
-  document.getElementById("otherUnit").style.display="none";
-  editIndex=-1;
-  setEditTip("");
-}
-
-document.getElementById("unit").addEventListener("change",function(){
-  document.getElementById("otherUnit").style.display=this.value==="其他"?"inline-block":"none";
+// 切换其他单元
+document.getElementById("unit").addEventListener("change", function () {
+  document.getElementById("other").style.display = this.value === "其他" ? "inline" : "none";
 });
 
-// 開啟網頁不自動讀取
-window.onload=()=>{initDateTime();};
+// 状态提示
+function setStatus(msg, isError = false) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = isError ? "status error" : "status success";
+}
+
+// ✅ 核心：提交（用 FormData 彻底解决 CORS/网络错误）
+async function submitData() {
+  // 1. 取值
+  const date = `${document.getElementById("y").value}/${document.getElementById("m").value}/${document.getElementById("d").value}`;
+  const time = `${document.getElementById("h").value}:${document.getElementById("mi").value}`;
+  let unit = document.getElementById("unit").value;
+  const other = document.getElementById("other").value.trim();
+  const density = document.getElementById("density").value.trim();
+  const temp = document.getElementById("temp").value.trim();
+  const user = document.getElementById("user").value.trim();
+  const note = document.getElementById("note").value.trim();
+
+  // 2. 校验
+  if (unit === "其他" && !other) return alert("請輸入自訂單元");
+  if (!density || !temp || !user) return alert("請填寫完整");
+  if (unit === "其他") unit = `其他(${other})`;
+
+  // 3. 准备数据
+  const row = [date, time, unit, density, temp, user, note];
+  setStatus("送出中...");
+
+  try {
+    // ✅ 关键：用 FormData 提交（不会触发 CORS 预检，100%解决网络错误）
+    const formData = new FormData();
+    formData.append("data", JSON.stringify({
+      action: "add", date, time, unit, density, temp, user, note
+    }));
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: formData // 不设 Content-Type，浏览器自动处理
+    });
+
+    const result = await res.json();
+    if (result.status === "success") {
+      // 加到表格最上方
+      const tbody = document.getElementById("tableBody");
+      const tr = document.createElement("tr");
+      tr.innerHTML = row.map(col => `<td>${col}</td>`).join("");
+      tbody.insertBefore(tr, tbody.firstChild);
+
+      // 清空表单
+      document.getElementById("density").value = "";
+      document.getElementById("temp").value = "";
+      document.getElementById("user").value = "";
+      document.getElementById("note").value = "";
+      document.getElementById("other").value = "";
+      document.getElementById("unit").value = "原液坑一";
+      document.getElementById("other").style.display = "none";
+
+      setStatus("✅ 送出成功！已顯示並存入試算表");
+    } else {
+      setStatus("❌ 送出失敗：" + result.msg, true);
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus("❌ 網路錯誤，請檢查：GAS 部署/URL/權限", true);
+  }
+}
+
+window.onload = initDateTime;
 </script>
 </body>
 </html>

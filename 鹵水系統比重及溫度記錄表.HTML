@@ -51,6 +51,7 @@
         .btn-confirm { background: #4CAF50; color: white; }
         .btn-delete { background: #f44336; color: white; }
         .btn-download { background: #2196F3; color: white; }
+        .btn-sync { background: #6a1b9a; color: white; }
         .page-btn {
             padding: 6px 12px;
             margin: 0 5px;
@@ -85,11 +86,21 @@
             margin-top: 15px;
             text-align: center;
         }
+        .status {
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>比重 / 溫度 記錄表</h2>
+        <h2>比重 / 溫度 記錄表（GitHub 雲端版）</h2>
+
+        <div id="status" class="status"></div>
 
         <div class="form-group">
             <label>量測日期：</label>
@@ -140,6 +151,7 @@
         <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
         <button class="btn btn-delete" onclick="deleteData()">刪除選取</button>
         <button class="btn btn-download" onclick="exportCSV()">下載CSV</button>
+        <button class="btn btn-sync" onclick="loadFromGitHub()">重新整理</button>
 
         <table id="recordTable">
             <thead>
@@ -163,12 +175,29 @@
     </div>
 
     <script>
+        // ===================== 請填寫你的 GitHub 資訊 =====================
+        const CONFIG = {
+            OWNER: seanchung08-art,      // 例如：chungchangyen
+            REPO: seanchung08-art.github.io,         // 例如：density-record
+            PATH: data.json,            // 資料存在這個檔案
+            TOKEN: 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  // 必須有 repo 權限
+        };
+        // =================================================================
+
         let recordList = [];
         let selectIndex = -1;
-        const pageSize = 100; // 每頁100行
-        let currentPage = 1;  // 當前頁數
+        const pageSize = 100;
+        let currentPage = 1;
+        let currentSha = null;
 
-        // 民國年 110~120
+        // 狀態提示
+        function setStatus(msg, isError = false) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = isError ? 'status error' : 'status success';
+        }
+
+        // 民國年
         const yearSel = document.getElementById('year');
         for(let i=110; i<=120; i++){
             let opt = document.createElement('option');
@@ -177,7 +206,7 @@
             yearSel.appendChild(opt);
         }
 
-        // 月份 01~12
+        // 月份
         const monthSel = document.getElementById('month');
         for(let i=1; i<=12; i++){
             let m = i.toString().padStart(2,'0');
@@ -187,7 +216,7 @@
             monthSel.appendChild(opt);
         }
 
-        // 日期 01~31
+        // 日期
         const daySel = document.getElementById('day');
         for(let i=1; i<=31; i++){
             let d = i.toString().padStart(2,'0');
@@ -197,7 +226,7 @@
             daySel.appendChild(opt);
         }
 
-        // 小時 00~23
+        // 小時
         const hourSel = document.getElementById('hour');
         for(let i=0; i<24; i++){
             let h = i.toString().padStart(2,'0');
@@ -207,7 +236,7 @@
             hourSel.appendChild(opt);
         }
 
-        // 分鐘 10分鐘間隔
+        // 分鐘 10 分間隔
         const minSel = document.getElementById('minute');
         const minuteList = ['00','10','20','30','40','50'];
         for(let m of minuteList){
@@ -217,7 +246,7 @@
             minSel.appendChild(opt);
         }
 
-        // 其他單元切換
+        // 其他單元
         document.getElementById('unit').addEventListener('change', function(){
             const otherInput = document.getElementById('otherUnit');
             if(this.value === '其他'){
@@ -228,16 +257,57 @@
             }
         });
 
-        // 本地儲存
-        function saveToLocal() {
-            localStorage.setItem('densityRecords', JSON.stringify(recordList));
+        // 從 GitHub 讀取 data.json
+        async function loadFromGitHub() {
+            setStatus("讀取雲端資料中…");
+            try {
+                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
+                const res = await fetch(api, {
+                    headers: { Authorization: `token ${CONFIG.TOKEN}` }
+                });
+
+                if (!res.ok) throw new Error("讀取失敗");
+                const data = await res.json();
+                currentSha = data.sha;
+
+                const content = atob(data.content.replace(/\s/g, ''));
+                recordList = JSON.parse(content) || [];
+
+                renderTable();
+                setStatus("雲端資料載入完成");
+            } catch (e) {
+                setStatus("載入失敗：" + e.message, true);
+            }
         }
 
-        function loadFromLocal() {
-            const data = localStorage.getItem('densityRecords');
-            if (data) {
-                recordList = JSON.parse(data);
-                renderTable();
+        // 儲存到 GitHub
+        async function saveToGitHub() {
+            setStatus("儲存至雲端…");
+            try {
+                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
+                const content = btoa(JSON.stringify(recordList, null, 2));
+
+                const body = {
+                    message: "更新比重溫度記錄",
+                    content: content,
+                    sha: currentSha
+                };
+
+                const res = await fetch(api, {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `token ${CONFIG.TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (!res.ok) throw new Error("儲存失敗");
+                const data = await res.json();
+                currentSha = data.content.sha;
+                setStatus("雲端儲存成功");
+            } catch (e) {
+                setStatus("儲存失敗：" + e.message, true);
             }
         }
 
@@ -259,8 +329,8 @@
             minSel.value = min;
         }
 
-        // 儲存：新增資料放在最前面
-        function saveData(){
+        // 儲存
+        async function saveData(){
             const date = `${yearSel.value}/${monthSel.value}/${daySel.value}`;
             const time = `${hourSel.value}:${minSel.value}`;
             let unit = document.getElementById('unit').value;
@@ -285,23 +355,21 @@
                 recordList[selectIndex] = data;
                 selectIndex = -1;
             }else{
-                // 最新資料永遠在第一筆
                 recordList.unshift(data);
             }
 
-            saveToLocal();
-            currentPage = 1; // 新增後回到第一頁(最新頁)
+            await saveToGitHub();
+            currentPage = 1;
             renderTable();
             clearForm();
         }
 
-        // 分頁表格渲染（最新至上）
+        // 分頁
         function renderTable(){
             const tbody = document.getElementById('tableBody');
             const totalPages = Math.ceil(recordList.length / pageSize);
             tbody.innerHTML = '';
 
-            // 分頁範圍
             const start = (currentPage - 1) * pageSize;
             const end = start + pageSize;
             const pageData = recordList.slice(start, end);
@@ -321,11 +389,9 @@
                 tbody.appendChild(tr);
             });
 
-            // 更新頁數
             document.getElementById('pageInfo').textContent = `第 ${currentPage} 頁 / 共 ${totalPages} 頁`;
         }
 
-        // 上一頁
         function prevPage() {
             if (currentPage > 1) {
                 currentPage--;
@@ -333,7 +399,6 @@
             }
         }
 
-        // 下一頁
         function nextPage() {
             const totalPages = Math.ceil(recordList.length / pageSize);
             if (currentPage < totalPages) {
@@ -342,7 +407,7 @@
             }
         }
 
-        // 選取編輯
+        // 選取
         function selectRow(idx){
             selectIndex = idx;
             const d = recordList[idx];
@@ -372,7 +437,7 @@
         }
 
         // 刪除
-        function deleteData(){
+        async function deleteData(){
             if(selectIndex < 0){
                 alert('請先點選表格資料');
                 return;
@@ -380,13 +445,13 @@
             if(confirm('確定刪除?')){
                 recordList.splice(selectIndex,1);
                 selectIndex = -1;
-                saveToLocal();
+                await saveToGitHub();
                 renderTable();
                 clearForm();
             }
         }
 
-        // 清空表單
+        // 清空
         function clearForm(){
             document.getElementById('density').value = '';
             document.getElementById('temp').value = '';
@@ -396,7 +461,7 @@
             setNowDateTime();
         }
 
-        // CSV匯出
+        // CSV
         function exportCSV() {
             if (recordList.length === 0) {
                 alert('無資料可匯出！');
@@ -418,7 +483,7 @@
                 csv += row.join(',') + '\r\n';
             });
 
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv' });
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: text/csv });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -429,7 +494,7 @@
 
         // 初始化
         window.onload = function () {
-            loadFromLocal();
+            loadFromGitHub();
             setNowDateTime();
         };
     </script>

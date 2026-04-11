@@ -155,12 +155,12 @@ const initDateTime = () => {
   });
 };
 
-// 表格渲染（强制显示文本格式）
+// 表格渲染（強制日期格式 YYY/MM/DD → 115/04/11）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((item,i)=>`
     <tr onclick="editRow(${i})">
-      <td>${item.date}</td>
+      <td>${formatDate(item.date)}</td>  <!-- 這裡強制格式化 -->
       <td>${item.time}</td>
       <td>${item.unit}</td>
       <td>${item.density}</td>
@@ -171,6 +171,18 @@ const renderTable = () => {
   `).join("");
 };
 
+// 日期格式化：確保輸出 115/04/11 格式
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split("/");
+  if (parts.length >= 3) {
+    const y = parts[0].padStart(3, "0");  // 年固定3碼
+    const m = parts[1].padStart(2, "0");  // 月2碼
+    const d = parts[2].padStart(2, "0");  // 日2碼
+    return `${y}/${m}/${d}`;
+  }
+  return dateStr;
+};
 // 编辑
 const editRow = (i) => {
   editIndex = i;

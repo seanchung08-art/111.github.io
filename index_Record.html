@@ -2,59 +2,56 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>比重 / 溫度 記錄表</title>
+    <title>比重 / 溫度 記錄表（跨設備版）</title>
     <style>
         * {
             box-sizing: border-box;
             font-family: "Microsoft JhengHei", sans-serif;
         }
         body {
-            margin: 30px;
+            margin: 20px;
             background: #f5f5f5;
         }
         .container {
-            max-width: 1000px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
-            padding: 25px;
+            padding: 20px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
         .form-group {
-            margin: 15px 0;
+            margin: 12px 0;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
         label {
-            width: 100px;
+            width: 90px;
             font-weight: bold;
         }
         select, input {
-            padding: 8px;
+            padding: 6px;
             font-size: 14px;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        input:read-only {
-            background: #f0f0f0;
-        }
         .btn {
-            padding: 8px 16px;
+            padding: 6px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
-            margin-right: 8px;
+            margin-right: 6px;
+            color: white;
         }
-        .btn-confirm { background: #4CAF50; color: white; }
-        .btn-delete { background: #f44336; color: white; }
-        .btn-download { background: #2196F3; color: white; }
-        .btn-refresh { background: #ff9800; color: white; }
+        .btn-confirm { background: #4CAF50; }
+        .btn-delete { background: #f44336; }
+        .btn-download { background: #2196F3; }
+        .btn-refresh { background: #ff9800; }
         .page-btn {
-            padding: 6px 12px;
-            margin: 0 5px;
+            padding: 5px 10px;
+            margin: 0 4px;
             border: 1px solid #ccc;
             border-radius: 4px;
             cursor: pointer;
@@ -62,26 +59,17 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 25px;
+            margin-top: 20px;
         }
         table, th, td {
             border: 1px solid #333;
         }
         th, td {
-            padding: 10px;
+            padding: 8px;
             text-align: center;
         }
-        th {
-            background: #e0e0e0;
-        }
-        tr:hover {
-            background: #f0f8ff;
-            cursor: pointer;
-        }
-        #otherUnit {
-            display: none;
-            margin-left: 5px;
-        }
+        th { background: #e8e8e8; }
+        tr:hover { background: #f0f8ff; cursor: pointer; }
         .pagination {
             margin-top: 15px;
             text-align: center;
@@ -90,359 +78,307 @@
             padding: 8px;
             border-radius: 4px;
             margin-bottom: 10px;
-            font-size: 14px;
         }
         .success { background: #e8f5e9; color: #2e7d32; }
         .error { background: #ffebee; color: #c62828; }
+        #otherUnit { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>比重 / 溫度 記錄表（GitHub Pages 版）</h2>
-        <div id="status" class="status"></div>
+<div class="container">
+    <h2>比重 / 溫度 記錄表（手機/電腦通用）</h2>
+    <div id="status" class="status"></div>
 
-        <div class="form-group">
-            <label>量測日期：</label>
-            <select id="year"></select> /
-            <select id="month"></select> /
-            <select id="day"></select>
-        </div>
-
-        <div class="form-group">
-            <label>量測時間：</label>
-            <select id="hour"></select> :
-            <select id="minute"></select>
-        </div>
-
-        <div class="form-group">
-            <label>單元名稱：</label>
-            <select id="unit">
-                <option value="原液坑一">原液坑一</option>
-                <option value="原液坑二">原液坑二</option>
-                <option value="VVCC#A">VVCC#A</option>
-                <option value="VVCC#B">VVCC#B</option>
-                <option value="VVCC#C">VVCC#C</option>
-                <option value="結晶罐#A">結晶罐#A</option>
-                <option value="結晶罐#B">結晶罐#B</option>
-                <option value="結晶罐#C">結晶罐#C</option>
-                <option value="濃縮液槽">濃縮液槽</option>
-                <option value="應急坑">應急坑</option>
-                <option value="其他">其他</option>
-            </select>
-            <input type="text" id="otherUnit" placeholder="請輸入自訂單元">
-        </div>
-
-        <div class="form-group">
-            <label>比重：</label>
-            <input type="number" id="density" step="0.001" placeholder="範例：1.015">
-        </div>
-
-        <div class="form-group">
-            <label>溫度：</label>
-            <input type="number" id="temp" placeholder="範例：25">
-        </div>
-
-        <div class="form-group">
-            <label>測量者：</label>
-            <input type="text" id="user" placeholder="請輸入姓名">
-        </div>
-
-        <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
-        <button class="btn btn-delete" onclick="deleteData()">刪除選取</button>
-        <button class="btn btn-download" onclick="exportCSV()">下載CSV</button>
-        <button class="btn btn-refresh" onclick="loadFromLocal()">重新整理</button>
-
-        <table id="recordTable">
-            <thead>
-                <tr>
-                    <th>量測日期</th>
-                    <th>量測時間</th>
-                    <th>單元名稱</th>
-                    <th>比重</th>
-                    <th>溫度</th>
-                    <th>測量者</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-
-        <div class="pagination">
-            <button class="page-btn" onclick="prevPage()">上一頁</button>
-            <span id="pageInfo">第 1 頁 / 共 1 頁</span>
-            <button class="page-btn" onclick="nextPage()">下一頁</button>
-        </div>
+    <div class="form-group">
+        <label>量測日期：</label>
+        <select id="year"></select>/<select id="month"></select>/<select id="day"></select>
+    </div>
+    <div class="form-group">
+        <label>量測時間：</label>
+        <select id="hour"></select>:<select id="minute"></select>
+    </div>
+    <div class="form-group">
+        <label>單元名稱：</label>
+        <select id="unit">
+            <option value="原液坑一">原液坑一</option>
+            <option value="原液坑二">原液坑二</option>
+            <option value="VVCC#A">VVCC#A</option>
+            <option value="VVCC#B">VVCC#B</option>
+            <option value="VVCC#C">VVCC#C</option>
+            <option value="結晶罐#A">結晶罐#A</option>
+            <option value="結晶罐#B">結晶罐#B</option>
+            <option value="結晶罐#C">結晶罐#C</option>
+            <option value="濃縮液槽">濃縮液槽</option>
+            <option value="應急坑">應急坑</option>
+            <option value="其他">其他</option>
+        </select>
+        <input type="text" id="otherUnit" placeholder="自訂單元">
+    </div>
+    <div class="form-group">
+        <label>比重：</label>
+        <input type="number" id="density" step="0.001" placeholder="例：1.025">
+    </div>
+    <div class="form-group">
+        <label>溫度：</label>
+        <input type="number" id="temp" placeholder="例：28">
+    </div>
+    <div class="form-group">
+        <label>測量者：</label>
+        <input type="text" id="user" placeholder="姓名">
     </div>
 
-    <script>
-        let recordList = [];
-        let selectIndex = -1;
-        const pageSize = 100;
-        let currentPage = 1;
+    <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
+    <button class="btn btn-delete" onclick="deleteData()">刪除選取</button>
+    <button class="btn btn-download" onclick="exportCSV()">下載CSV</button>
+    <button class="btn btn-refresh" onclick="loadData()">重新整理</button>
 
-        function setStatus(msg, isError = false) {
-            const el = document.getElementById('status');
-            el.textContent = msg;
-            el.className = isError ? 'status error' : 'status success';
-        }
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
 
-        // 民國年
-        const yearSel = document.getElementById('year');
-        for(let i=110; i<=120; i++){
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i;
-            yearSel.appendChild(opt);
-        }
+    <div class="pagination">
+        <button class="page-btn" onclick="prevPage()">上一頁</button>
+        <span id="pageInfo">第 1 頁 / 共 1 頁</span>
+        <button class="page-btn" onclick="nextPage()">下一頁</button>
+    </div>
+</div>
 
-        // 月份
-        const monthSel = document.getElementById('month');
-        for(let i=1; i<=12; i++){
-            let m = i.toString().padStart(2,'0');
-            let opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            monthSel.appendChild(opt);
-        }
+<script>
+// ========== 請修改這三項 ==========
+const GIST_ID = "你的Gist編號";
+const OWNER = "seanchung08-art";
+const TOKEN = "ghp_你的GitHub令牌";
+// =================================
 
-        // 日期
-        const daySel = document.getElementById('day');
-        for(let i=1; i<=31; i++){
-            let d = i.toString().padStart(2,'0');
-            let opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = d;
-            daySel.appendChild(opt);
-        }
+const FILE_NAME = "data.json";
+let records = [];
+let currentPage = 1;
+const pageSize = 100;
+let selectedIndex = -1;
 
-        // 小時
-        const hourSel = document.getElementById('hour');
-        for(let i=0; i<24; i++){
-            let h = i.toString().padStart(2,'0');
-            let opt = document.createElement('option');
-            opt.value = h;
-            opt.textContent = h;
-            hourSel.appendChild(opt);
-        }
+// 狀態提示
+function setStatus(msg, isError=false) {
+    const el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = isError ? "status error" : "status success";
+}
 
-        // 分鐘
-        const minSel = document.getElementById('minute');
-        const minuteList = ['00','10','20','30','40','50'];
-        for(let m of minuteList){
-            let opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            minSel.appendChild(opt);
-        }
+// 初始化日期下拉
+function initDateTime() {
+    const year = document.getElementById("year");
+    for(let i=110; i<=120; i++){
+        let opt = document.createElement("option");
+        opt.value=opt.textContent=i;
+        year.appendChild(opt);
+    }
+    const month = document.getElementById("month");
+    for(let i=1; i<=12; i++){
+        let m = String(i).padStart(2,"0");
+        let opt = document.createElement("option");
+        opt.value=opt.textContent=m;
+        month.appendChild(opt);
+    }
+    const day = document.getElementById("day");
+    for(let i=1; i<=31; i++){
+        let d = String(i).padStart(2,"0");
+        let opt = document.createElement("option");
+        opt.value=opt.textContent=d;
+        day.appendChild(opt);
+    }
+    const hour = document.getElementById("hour");
+    for(let i=0; i<24; i++){
+        let h = String(i).padStart(2,"0");
+        let opt = document.createElement("option");
+        opt.value=opt.textContent=h;
+        hour.appendChild(opt);
+    }
+    const minute = document.getElementById("minute");
+    ["00","10","20","30","40","50"].forEach(m=>{
+        let opt = document.createElement("option");
+        opt.value=opt.textContent=m;
+        minute.appendChild(opt);
+    });
+}
 
-        document.getElementById('unit').addEventListener('change', function(){
-            const otherInput = document.getElementById('otherUnit');
-            if(this.value === '其他'){
-                otherInput.style.display = 'inline';
-            }else{
-                otherInput.style.display = 'none';
-                otherInput.value = '';
-            }
+// 載入 Gist 資料
+async function loadData() {
+    setStatus("載入中...");
+    try {
+        const res = await fetch(`https://api.github.com/gists/933258a9b4a1e36b29d8613285ba8b72.js`, {
+            headers: { Authorization: `token ${TOKEN}` }
         });
+        const gist = await res.json();
+        const content = gist.files[FILE_NAME].content;
+        records = JSON.parse(content);
+        renderTable();
+        setStatus("載入完成（共 " + records.length + " 筆）");
+    } catch(e) {
+        setStatus("載入失敗：" + e.message, true);
+    }
+}
 
-        // 改用 LocalStorage 儲存（解決跨域問題）
-        function saveToLocal() {
-            localStorage.setItem('densityRecords', JSON.stringify(recordList));
-        }
+// 儲存到 Gist
+async function saveToGist(data) {
+    setStatus("儲存中...");
+    try {
+        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: "PATCH",
+            headers: {
+                Authorization: `token ${TOKEN}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                files: { [FILE_NAME]: { content: JSON.stringify(data, null, 2) } }
+            })
+        });
+        setStatus("儲存成功");
+        return true;
+    } catch(e) {
+        setStatus("儲存失敗：" + e.message, true);
+        return false;
+    }
+}
 
-        function loadFromLocal() {
-            setStatus("載入資料中...");
-            try {
-                const data = localStorage.getItem('densityRecords');
-                if (data) {
-                    recordList = JSON.parse(data);
-                } else {
-                    recordList = [];
-                }
-                renderTable();
-                setStatus("資料載入完成");
-            } catch (e) {
-                setStatus("載入失敗：" + e.message, true);
-            }
-        }
+// 儲存資料
+async function saveData() {
+    const y = document.getElementById("year").value;
+    const m = document.getElementById("month").value;
+    const d = document.getElementById("day").value;
+    const h = document.getElementById("hour").value;
+    const i = document.getElementById("minute").value;
+    let unit = document.getElementById("unit").value;
+    const other = document.getElementById("otherUnit").value.trim();
+    const density = document.getElementById("density").value.trim();
+    const temp = document.getElementById("temp").value.trim();
+    const user = document.getElementById("user").value.trim();
 
-        function setNowDateTime() {
-            const now = new Date();
-            const year = now.getFullYear() - 1911;
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const day = now.getDate().toString().padStart(2, '0');
-            const hour = now.getHours().toString().padStart(2, '0');
-            const nowMin = now.getMinutes();
-            const min = minuteList.find(m => parseInt(m) > nowMin) || '00';
-            yearSel.value = year;
-            monthSel.value = month;
-            daySel.value = day;
-            hourSel.value = hour;
-            minSel.value = min;
-        }
+    if(unit==="其他" && !other) return alert("請輸入自訂單元");
+    if(!density || !temp || !user) return alert("請填完整");
+    if(unit==="其他") unit = `其他(${other})`;
 
-        function saveData(){
-            const date = `${yearSel.value}/${monthSel.value}/${daySel.value}`;
-            const time = `${hourSel.value}:${minSel.value}`;
-            let unit = document.getElementById('unit').value;
-            const otherText = document.getElementById('otherUnit').value.trim();
-            const density = document.getElementById('density').value.trim();
-            const temp = document.getElementById('temp').value.trim();
-            const user = document.getElementById('user').value.trim();
+    const item = {
+        date: `${y}/${m}/${d}`,
+        time: `${h}:${i}`,
+        unit, density, temp, user
+    };
 
-            if(unit === '其他' && otherText === ''){
-                alert('請輸入其他單元名稱！');
-                return;
-            }
-            if(!density || !temp || !user){
-                alert('請填寫完整資訊！');
-                return;
-            }
+    if(selectedIndex >= 0) {
+        records[selectedIndex] = item;
+        selectedIndex = -1;
+    } else {
+        records.unshift(item);
+    }
 
-            if(unit === '其他') unit = `其他(${otherText})`;
-            const data = { date, time, unit, density, temp, user };
+    const ok = await saveToGist(records);
+    if(ok) {
+        renderTable();
+        clearForm();
+    }
+}
 
-            if(selectIndex >= 0){
-                recordList[selectIndex] = data;
-                selectIndex = -1;
-            }else{
-                recordList.unshift(data);
-            }
+// 渲染表格
+function renderTable() {
+    const tbody = document.getElementById("tableBody");
+    const total = Math.ceil(records.length / pageSize);
+    const start = (currentPage-1)*pageSize;
+    const pageData = records.slice(start, start+pageSize);
+    tbody.innerHTML = "";
 
-            saveToLocal();
-            currentPage = 1;
-            renderTable();
-            clearForm();
-            setStatus("儲存成功");
-        }
+    pageData.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        tr.onclick = () => { selectedIndex=start+idx; fillForm(item); };
+        tr.innerHTML = `
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.unit}</td>
+            <td>${item.density}</td>
+            <td>${item.temp}</td>
+            <td>${item.user}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 
-        function renderTable(){
-            const tbody = document.getElementById('tableBody');
-            const totalPages = Math.ceil(recordList.length / pageSize);
-            tbody.innerHTML = '';
+    document.getElementById("pageInfo").textContent = `第 ${currentPage} 頁 / 共 ${total} 頁`;
+}
 
-            const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
-            const pageData = recordList.slice(start, end);
+function prevPage() { if(currentPage>1) { currentPage--; renderTable(); } }
+function nextPage() {
+    const total = Math.ceil(records.length/pageSize);
+    if(currentPage<total) { currentPage++; renderTable(); }
+}
 
-            pageData.forEach((item, idx) => {
-                let tr = document.createElement('tr');
-                const realIndex = start + idx;
-                tr.onclick = () => selectRow(realIndex);
-                tr.innerHTML = `
-                    <td>${item.date}</td>
-                    <td>${item.time}</td>
-                    <td>${item.unit}</td>
-                    <td>${item.density}</td>
-                    <td>${item.temp}</td>
-                    <td>${item.user}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+// 填寫表單
+function fillForm(item) {
+    const [y,m,d] = item.date.split("/");
+    const [h,i] = item.time.split(":");
+    document.getElementById("year").value = y;
+    document.getElementById("month").value = m;
+    document.getElementById("day").value = d;
+    document.getElementById("hour").value = h;
+    document.getElementById("minute").value = i;
 
-            document.getElementById('pageInfo').textContent = `第 ${currentPage} 頁 / 共 ${totalPages} 頁`;
-        }
+    const unitEl = document.getElementById("unit");
+    const otherEl = document.getElementById("otherUnit");
+    if(item.unit.startsWith("其他(")) {
+        unitEl.value = "其他";
+        otherEl.style.display = "inline";
+        otherEl.value = item.unit.replace(/其他\((.*)\)/,"$1");
+    } else {
+        unitEl.value = item.unit;
+        otherEl.style.display = "none";
+        otherEl.value = "";
+    }
 
-        function prevPage() {
-            if (currentPage > 1) {
-                currentPage--;
-                renderTable();
-            }
-        }
+    document.getElementById("density").value = item.density;
+    document.getElementById("temp").value = item.temp;
+    document.getElementById("user").value = item.user;
+}
 
-        function nextPage() {
-            const totalPages = Math.ceil(recordList.length / pageSize);
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderTable();
-            }
-        }
+// 清除表單
+function clearForm() {
+    document.getElementById("density").value = "";
+    document.getElementById("temp").value = "";
+    document.getElementById("user").value = "";
+    document.getElementById("otherUnit").value = "";
+    document.getElementById("otherUnit").style.display = "none";
+    selectedIndex = -1;
+}
 
-        function selectRow(idx){
-            selectIndex = idx;
-            const d = recordList[idx];
-            const [y,m,dy] = d.date.split('/');
-            const [h,i] = d.time.split(':');
+// 刪除
+async function deleteData() {
+    if(selectedIndex < 0) return alert("請先點選一筆");
+    if(!confirm("確定刪除？")) return;
+    records.splice(selectedIndex, 1);
+    selectedIndex = -1;
+    const ok = await saveToGist(records);
+    if(ok) renderTable();
+}
 
-            yearSel.value = y;
-            monthSel.value = m;
-            daySel.value = dy;
-            hourSel.value = h;
-            minSel.value = i;
+// 匯出CSV
+function exportCSV() {
+    if(records.length===0) return alert("無資料");
+    const header = "日期,時間,單元,比重,溫度,測量者\n";
+    const rows = records.map(r => 
+        `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user}`
+    ).join("\n");
+    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), header+rows], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "比重記錄表.csv";
+    a.click();
+}
 
-            if(d.unit.startsWith('其他(')){
-                document.getElementById('unit').value = '其他';
-                let ou = document.getElementById('otherUnit');
-                ou.style.display = 'inline';
-                ou.value = d.unit.replace(/其他\((.*)\)/,'$1');
-            }else{
-                document.getElementById('unit').value = d.unit;
-                document.getElementById('otherUnit').style.display = 'none';
-                document.getElementById('otherUnit').value = '';
-            }
+// 切換其他單元
+document.getElementById("unit").addEventListener("change", function(){
+    document.getElementById("otherUnit").style.display = this.value==="其他"?"inline":"none";
+});
 
-            document.getElementById('density').value = d.density;
-            document.getElementById('temp').value = d.temp;
-            document.getElementById('user').value = d.user;
-        }
-
-        function deleteData(){
-            if(selectIndex < 0){
-                alert('請先點選表格資料');
-                return;
-            }
-            if(confirm('確定刪除?')){
-                recordList.splice(selectIndex,1);
-                selectIndex = -1;
-                saveToLocal();
-                renderTable();
-                clearForm();
-                setStatus("刪除成功");
-            }
-        }
-
-        function clearForm(){
-            document.getElementById('density').value = '';
-            document.getElementById('temp').value = '';
-            document.getElementById('user').value = '';
-            document.getElementById('otherUnit').value = '';
-            document.getElementById('otherUnit').style.display = 'none';
-            setNowDateTime();
-        }
-
-        function exportCSV() {
-            if (recordList.length === 0) {
-                alert('無資料可匯出！');
-                return;
-            }
-
-            const headers = ['量測日期','量測時間','單元名稱','比重','溫度','測量者'];
-            let csv = headers.join(',') + '\r\n';
-
-            recordList.forEach(item => {
-                const row = [
-                    `"${item.date}"`,
-                    `"${item.time}"`,
-                    `"${item.unit}"`,
-                    `"${item.density}"`,
-                    `"${item.temp}"`,
-                    `"${item.user}"`
-                ];
-                csv += row.join(',') + '\r\n';
-            });
-
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = '比重溫度記錄表.csv';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        window.onload = function () {
-            loadFromLocal();
-            setNowDateTime();
-        };
-    </script>
+window.onload = () => { initDateTime(); loadData(); };
+</script>
 </body>
 </html>

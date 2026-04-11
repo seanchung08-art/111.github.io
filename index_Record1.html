@@ -33,7 +33,6 @@
     <h2>比重 / 溫度記錄表（Google雲端同步）</h2>
     <div id="status" class="status">啟動中...</div>
 
-    <!-- 查詢區間 -->
     <div class="search-bar">
         <div class="form-group">
             <label>查詢區間：</label>
@@ -207,7 +206,9 @@ function selectRecord(idx) {
     setStatus("已載入資料，修改後按「確認送出」");
 }
 
-// ✅ 修復：儲存/編輯後強制表格刷新
+// ==============================================
+// ✅ 已修復：儲存/編輯後 100% 刷新表格
+// ==============================================
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -224,8 +225,7 @@ async function saveData() {
 
     try {
         setStatus("儲存中...");
-        
-        // 1. 先執行儲存或更新
+
         if(isEditMode) {
             await fetch(GOOGLE_SCRIPT_URL, {
                 method:"POST",
@@ -244,19 +244,14 @@ async function saveData() {
             });
         }
 
-        // 2. 等雲端存好 → 立刻重載全部資料（表格一定更新）
+        // 強制刷新資料 + 表格
         await loadData();
-
-        // 3. 最後才清空表單、離開編輯模式
         clearForm();
-        setStatus(isEditMode ? "✅ 修改完成．表格已更新" : "✅ 儲存成功．表格已更新");
-        
-        // 4. 關閉編輯模式
+        setStatus(isEditMode ? "✅ 修改完成．表格已同步" : "✅ 儲存成功．表格已同步");
         isEditMode = false;
 
     } catch(e) {
-        setStatus("⚠️ 儲存失敗", true);
-        console.error(e);
+        setStatus("⚠️ 操作失敗", true);
     }
 }
 
@@ -269,7 +264,7 @@ async function deleteData() {
         });
         await loadData();
         clearForm();
-        setStatus("✅ 刪除成功．表格已更新");
+        setStatus("✅ 刪除成功．表格已同步");
     } catch(e) {
         setStatus("⚠️ 刪除失敗", true);
     }

@@ -90,9 +90,9 @@
 
 <script>
 // ======================
-// 貼上你的 Google Apps Script 網址
+// 請替換成你自己的 Google Apps Script 部署網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbw1MzLyO9v9B-DXqkO_IDVW1KhrAY5nzB-B-OZWSMyNNbJ-shy7vAgcuKQLQiQR3-n3/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwqHKAORCbeF8iedyq_HtNB6nL1oda7HU9AlHhx-8uvWOip99hSWjn5DmuQMOS2rCET/exec";
 
 let records = [];
 let editIndex = -1;
@@ -166,18 +166,18 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染
+// 表格渲染（直接用索引取值，避免 undefined）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
-  tb.innerHTML = records.map((item, idx) => `
+  tb.innerHTML = records.map((row, idx) => `
     <tr onclick="editRow(${idx})">
-      <td>${item.date}</td>
-      <td>${item.time}</td>
-      <td>${item.unit}</td>
-      <td>${item.density}</td>
-      <td>${item.temp}</td>
-      <td>${item.user}</td>
-      <td>${item.note || ""}</td>
+      <td>${row[0] || ""}</td>
+      <td>${row[1] || ""}</td>
+      <td>${row[2] || ""}</td>
+      <td>${row[3] || ""}</td>
+      <td>${row[4] || ""}</td>
+      <td>${row[5] || ""}</td>
+      <td>${row[6] || ""}</td>
     </tr>
   `).join("");
 };
@@ -185,29 +185,32 @@ const renderTable = () => {
 // 編輯列
 const editRow = (idx) => {
   editIndex = idx;
-  const item = records[idx];
-  const [y, m, d] = item.date.split("/");
-  const [h, mi] = item.time.split(":");
+  const row = records[idx];
+  if (!row) return;
+  
+  const [dateStr, timeStr, unitStr, densityStr, tempStr, userStr, noteStr] = row;
+  const [y, m, d] = (dateStr || "").split("/");
+  const [h, mi] = (timeStr || "").split(":");
 
   // 填入表單
-  document.getElementById("year").value = y;
-  document.getElementById("month").value = m;
-  document.getElementById("day").value = d;
-  document.getElementById("hour").value = h;
-  document.getElementById("minute").value = mi;
-  document.getElementById("density").value = item.density;
-  document.getElementById("temp").value = item.temp;
-  document.getElementById("user").value = item.user;
-  document.getElementById("note").value = item.note || "";
+  document.getElementById("year").value = y || new Date().getFullYear() - 1911;
+  document.getElementById("month").value = m || String(new Date().getMonth() + 1).padStart(2, "0");
+  document.getElementById("day").value = d || String(new Date().getDate()).padStart(2, "0");
+  document.getElementById("hour").value = h || String(new Date().getHours()).padStart(2, "0");
+  document.getElementById("minute").value = mi || "00";
+  document.getElementById("density").value = densityStr || "";
+  document.getElementById("temp").value = tempStr || "";
+  document.getElementById("user").value = userStr || "";
+  document.getElementById("note").value = noteStr || "";
 
   // 單元處理
-  const unit = item.unit;
+  const unit = unitStr || "";
   if(unit.startsWith("其他(")){
     document.getElementById("unit").value = "其他";
     document.getElementById("otherUnit").style.display = "inline-block";
     document.getElementById("otherUnit").value = unit.replace(/其他\((.*?)\)/, "$1");
   } else {
-    document.getElementById("unit").value = unit;
+    document.getElementById("unit").value = unit || "原液坑一";
     document.getElementById("otherUnit").style.display = "none";
     document.getElementById("otherUnit").value = "";
   }

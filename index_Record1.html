@@ -17,7 +17,6 @@
         .btn-download{background:#2196F3}
         .btn-refresh{background:#ff9800}
         .btn-search{background:#9C27B0}
-        .btn-edit{background:#1E88E5}
         table{width:100%;border-collapse:collapse;margin-top:15px}
         th,td{border:1px solid #333;padding:8px;text-align:center}
         th{background:#eaeaea}
@@ -114,7 +113,6 @@ function setStatus(msg, isError=false) {
     statusEl.className = isError ? "status error" : "status success";
 }
 
-// 快速產生選單
 function fillSelect(el, start, end, pad, cur, step=1) {
     el.innerHTML = "";
     for(let i=start; i<=end; i+=step) {
@@ -123,7 +121,6 @@ function fillSelect(el, start, end, pad, cur, step=1) {
     }
 }
 
-// 初始化所有日期
 function initDateTime() {
     const now = new Date();
     const roc = now.getFullYear() - 1911;
@@ -147,14 +144,12 @@ function initDateTime() {
     fillSelect(document.getElementById("eDay"),1,31,true,d);
 }
 
-// 轉日期為數字方便比對
 function dateToNum(str) {
     if(!str) return 0;
     const [y,mo,d] = str.split("/");
     return Number(y)*10000 + Number(mo)*100 + Number(d);
 }
 
-// 查詢
 function searchByDate() {
     const s = `${document.getElementById("sYear").value}/${document.getElementById("sMonth").value}/${document.getElementById("sDay").value}`;
     const e = `${document.getElementById("eYear").value}/${document.getElementById("eMonth").value}/${document.getElementById("eDay").value}`;
@@ -168,7 +163,6 @@ function searchByDate() {
     setStatus(`查詢完成：${filtered.length} 筆`);
 }
 
-// 載入全部
 async function loadData() {
     setStatus("雲端載入中...");
     try {
@@ -186,7 +180,6 @@ async function loadData() {
     }
 }
 
-// 渲染表格
 function renderTable(data) {
     tableBody.innerHTML = data.map((item,i) => `
         <tr onclick="selectRecord(${i})">
@@ -196,7 +189,6 @@ function renderTable(data) {
     `).join("");
 }
 
-// 點選紀錄（編輯用）
 function selectRecord(idx) {
     selectedIndex = idx;
     isEditMode = true;
@@ -215,7 +207,7 @@ function selectRecord(idx) {
     setStatus("已載入資料，修改後按「確認送出」");
 }
 
-// 儲存 & 編輯
+// ✅ 修復：儲存/編輯後強制表格刷新
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -232,27 +224,42 @@ async function saveData() {
 
     try {
         setStatus("儲存中...");
+        
+        // 1. 先執行儲存或更新
         if(isEditMode) {
             await fetch(GOOGLE_SCRIPT_URL, {
                 method:"POST",
-                body:JSON.stringify({action:"update", index:selectedIndex, date,time,unit,density,temp,user,note})
+                body:JSON.stringify({
+                    action:"update",
+                    index: selectedIndex,
+                    date, time, unit, density, temp, user, note
+                })
             });
         } else {
             await fetch(GOOGLE_SCRIPT_URL, {
                 method:"POST",
-                body:JSON.stringify({action:"save", date,time,unit,density,temp,user,note})
+                body:JSON.stringify({
+                    action:"save", date, time, unit, density, temp, user, note
+                })
             });
         }
-        isEditMode = false;
-        clearForm();
+
+        // 2. 等雲端存好 → 立刻重載全部資料（表格一定更新）
         await loadData();
-        setStatus(isEditMode?"✅ 修改完成":"✅ 儲存成功");
+
+        // 3. 最後才清空表單、離開編輯模式
+        clearForm();
+        setStatus(isEditMode ? "✅ 修改完成．表格已更新" : "✅ 儲存成功．表格已更新");
+        
+        // 4. 關閉編輯模式
+        isEditMode = false;
+
     } catch(e) {
-        setStatus("⚠️ 失敗", true);
+        setStatus("⚠️ 儲存失敗", true);
+        console.error(e);
     }
 }
 
-// 刪除
 async function deleteData() {
     if(selectedIndex<0) return alert("請點選資料");
     if(!confirm("確定刪除？")) return;
@@ -262,7 +269,7 @@ async function deleteData() {
         });
         await loadData();
         clearForm();
-        setStatus("✅ 刪除成功");
+        setStatus("✅ 刪除成功．表格已更新");
     } catch(e) {
         setStatus("⚠️ 刪除失敗", true);
     }
@@ -275,10 +282,8 @@ function clearForm() {
     document.getElementById("note").value = "";
     document.getElementById("otherUnit").value = "";
     selectedIndex = -1;
-    isEditMode = false;
 }
 
-// 匯出（查詢後也能匯出）
 function exportCSV() {
     const data = filtered.length ? filtered : records;
     if(!data.length) return alert("無資料");

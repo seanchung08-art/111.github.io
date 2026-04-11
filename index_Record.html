@@ -150,7 +150,7 @@
 
 <script>
 // ========== 請修改這三項 ==========
-const GIST_ID = "你的Gist編號";
+const GIST_ID = "933258a9b4a1e36b29d8613285ba8b72";
 const OWNER = "seanchung08-art";
 const TOKEN = "ghp_你的GitHub令牌";
 // =================================
@@ -209,8 +209,11 @@ function initDateTime() {
 async function loadData() {
     setStatus("載入中...");
     try {
-        const res = await fetch(`https://api.github.com/gists/933258a9b4a1e36b29d8613285ba8b72.js`, {
-            headers: { Authorization: `token ${TOKEN}` }
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            headers: { 
+                "Authorization": `token ${TOKEN}`,
+                "Accept": "application/json"
+            }
         });
         const gist = await res.json();
         const content = gist.files[FILE_NAME].content;
@@ -219,6 +222,7 @@ async function loadData() {
         setStatus("載入完成（共 " + records.length + " 筆）");
     } catch(e) {
         setStatus("載入失敗：" + e.message, true);
+        console.error(e);
     }
 }
 
@@ -226,20 +230,25 @@ async function loadData() {
 async function saveToGist(data) {
     setStatus("儲存中...");
     try {
-        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
             method: "PATCH",
             headers: {
-                Authorization: `token ${TOKEN}`,
+                "Authorization": `token ${TOKEN}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                files: { [FILE_NAME]: { content: JSON.stringify(data, null, 2) } }
+                files: { 
+                    [FILE_NAME]: { 
+                        content: JSON.stringify(data, null, 2) 
+                    } 
+                }
             })
         });
         setStatus("儲存成功");
         return true;
     } catch(e) {
         setStatus("儲存失敗：" + e.message, true);
+        console.error(e);
         return false;
     }
 }

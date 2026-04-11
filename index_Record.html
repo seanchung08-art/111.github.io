@@ -14,7 +14,7 @@
             display: flex; 
             align-items: center; 
             gap: 8px; 
-            white-space: nowrap;
+            flex-wrap: wrap;
         }
         
         label { 
@@ -133,10 +133,10 @@
 
 <script>
 // ==============================================
-// ⚠️  請務必填寫以下資訊 (必填，否則無法雲端同步) ⚠️
+// 🔑 請務必替換成你自己的資訊（這裡只是範例，請改寫！）
 // ==============================================
 const GIST_ID = "933258a9b4a1e36b29d8613285ba8b72";
-const TOKEN  = "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";
+const TOKEN  = "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";
 // ==============================================
 
 const FILE_NAME = "data.json";
@@ -203,13 +203,13 @@ function initDateTime() {
     });
 }
 
-// 雲端載入資料 (純Gist，無本地儲存)
+// 雲端載入資料
 async function loadData() {
     setStatus("雲端載入中...");
     try {
-        // 檢查必填參數
-        if (!GIST_ID || GIST_ID.includes("933258a9b4a1e36b29d8613285ba8b72")) {
-            throw new Error("請先設定正確的 GIST_ID");
+        // 基礎參數檢查
+        if (!GIST_ID || GIST_ID === "933258a9b4a1e36b29d8613285ba8b72") {
+            throw new Error("請先設定正確的 Gist ID");
         }
 
         const response = await fetch("https://api.github.com/gists/" + GIST_ID);
@@ -239,19 +239,19 @@ async function loadData() {
     }
 }
 
-// 雲端儲存 (修復Header錯誤，純Gist)
+// 雲端儲存（修正Token驗證邏輯）
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        // 1. 檢查參數
-        if (!TOKEN || TOKEN.includes("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")) {
-            throw new Error("請先設定有效的 GitHub Token");
+        // 修正：只有Token未設定時才報錯
+        if (!TOKEN || TOKEN === "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") {
+            throw new Error("請先設定 GitHub Token");
         }
         if (!GIST_ID) {
-            throw new Error("請先設定 GIST_ID");
+            throw new Error("請先設定 Gist ID");
         }
 
-        // 2. 關鍵修復：清除Token中非ASCII字元，避免Request Header錯誤
+        // 清除Token中非ASCII字元，避免Request Header錯誤
         const validToken = TOKEN.replace(/[^\x00-\x7F]/g, '').trim();
 
         const res = await fetch("https://api.github.com/gists/" + GIST_ID, {
@@ -269,7 +269,7 @@ async function saveToGist() {
             })
         });
 
-        if (!res.ok) throw new Error(`儲存失敗 ${res.status}`);
+        if (!res.ok) throw new Error(`伺服器回應 ${res.status}`);
         setStatus("✅ 雲端儲存成功");
     } catch (e) {
         setStatus("❌ 儲存失敗：" + e.message, true);
@@ -364,11 +364,13 @@ function exportCSV() {
     records.forEach(r => {
         csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
     });
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv" });
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "比重記錄表.csv";
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
 }
 
 document.getElementById("unit").addEventListener("change", function () {

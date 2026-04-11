@@ -29,7 +29,7 @@
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表</h2>
+    <h2>比重 / 溫度記錄表（最新 50 筆）</h2>
     <div id="editTip" class="edit-info"></div>
     <div id="status" class="status">讀取中...</div>
 
@@ -93,10 +93,7 @@
 </div>
 
 <script>
-// ======================
-// 請確保這裡是你最新部署的 GAS 網址
-// ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxGieJsgWv0tuDOkH8e5e7RZmszJ0ypj3l9itVCipr9XEyngboNipNU4dSDz1AB_cnA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyTNI6P3NDkeW2vmkxG4MgykM5E_lTWw8Lnv5e_-YNMDMb_1UyS8O0UZsdj-DCKIhfy/exec";
 
 let records = [];
 let editIndex = -1;
@@ -109,51 +106,56 @@ function toggleYearInput() {
     if(yearInputMode) {
         yearSel.style.display = 'none';
         yearInput.style.display = 'inline-block';
-        yearInput.value = yearSel.value;
     } else {
         yearSel.style.display = 'inline-block';
         yearInput.style.display = 'none';
-        yearSel.value = yearInput.value;
     }
 }
 
-const formatDate = (input) => {
-    if (!input) return "";
-    if (typeof input === "string") {
-        if (input.includes("-")) {
-            const parts = input.split("/");
-            const adYear = parseInt(parts[0]) + 1911;
-            const rocYear = adYear - 1911;
-            return `${rocYear}/${parts[1]}/${parts[2]}`;
-        }
-        if (input.includes("/")) {
-            return input;
-        }
-        if (input.includes("T")) {
-            const date = new Date(input);
-            const adYear = date.getFullYear();
-            const rocYear = adYear - 1911;
-            const month = String(date.getMonth() + 1).padStart(2, "0");
-            const day = String(date.getDate()).padStart(2, "0");
-            return `${rocYear}/${month}/${day}`;
-        }
+// 日期格式化（自動解析試算表日期）
+function formatDate(dateValue) {
+    if (!dateValue) return "";
+    
+    if (typeof dateValue === "object" || dateValue instanceof Date) {
+        const d = new Date(dateValue);
+        const roc = d.getFullYear() - 1911;
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const d2 = String(d.getDate()).padStart(2, "0");
+        return `${roc}/${m}/${d2}`;
     }
-    return "";
-};
 
-const formatTime = (input) => {
-    if (!input) return "";
-    if (typeof input === "string" && input.includes("1899")) {
-        const date = new Date(input);
-        const hour = String(date.getHours()).padStart(2, "0");
-        const minute = String(date.getMinutes()).padStart(2, "0");
-        return `${hour}:${minute}`;
+    if (typeof dateValue === "string") {
+        if (dateValue.includes("/")) return dateValue;
+        if (dateValue.includes("-")) {
+            const [y, m, d] = dateValue.split("-");
+            return `${y - 1911}/${m}/${d}`;
+        }
     }
-    if (typeof input === "string" && input.includes(":")) {
-        return input;
+
+    try {
+        const d = new Date(dateValue);
+        const roc = d.getFullYear() - 1911;
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const d2 = String(d.getDate()).padStart(2, "0");
+        return `${roc}/${m}/${d2}`;
+    } catch {
+        return dateValue;
     }
-    return "";
-};
+}
+
+// 時間格式化
+function formatTime(timeValue) {
+    if (!timeValue) return "";
+    if (typeof timeValue === "string" && timeValue.includes(":")) return timeValue;
+    try {
+        const d = new Date(timeValue);
+        const h = String(d.getHours()).padStart(2, "0");
+        const m = String(d.getMinutes()).padStart(2, "0");
+        return `${h}:${m}`;
+    } catch {
+        return timeValue;
+    }
+}
 
 const setStatus = (msg, err=false) => {
   const el = document.getElementById("status");
@@ -162,230 +164,189 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-const initDateTime = () => {
+// 初始化日期下拉
+function initDateTime() {
   const now = new Date();
-  const currentRocYear = now.getFullYear() - 1911;
+  const roc = now.getFullYear() - 1911;
   const pad = n => String(n).padStart(2, "0");
 
-  const yearSel = document.getElementById("year");
-  for(let i = 100; i <= 125; i++){
+  const ySel = document.getElementById("year");
+  for(let i=100;i<=125;i++){
     const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = i;
-    if(i === currentRocYear) opt.selected = true;
-    yearSel.appendChild(opt);
+    opt.value=i; opt.textContent=i;
+    if(i===roc) opt.selected=true;
+    ySel.appendChild(opt);
   }
 
-  const monthSel = document.getElementById("month");
-  for(let i = 1; i <= 12; i++){
-    const v = pad(i);
+  const mSel = document.getElementById("month");
+  for(let i=1;i<=12;i++){
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    if(i === now.getMonth() + 1) opt.selected = true;
-    monthSel.appendChild(opt);
+    const v=pad(i); opt.value=v; opt.textContent=v;
+    if(i===now.getMonth()+1) opt.selected=true;
+    mSel.appendChild(opt);
   }
 
-  const daySel = document.getElementById("day");
-  for(let i = 1; i <= 31; i++){
-    const v = pad(i);
+  const dSel = document.getElementById("day");
+  for(let i=1;i<=31;i++){
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    if(i === now.getDate()) opt.selected = true;
-    daySel.appendChild(opt);
+    const v=pad(i); opt.value=v; opt.textContent=v;
+    if(i===now.getDate()) opt.selected=true;
+    dSel.appendChild(opt);
   }
 
-  const hourSel = document.getElementById("hour");
-  for(let i = 0; i < 24; i++){
-    const v = pad(i);
+  const hSel = document.getElementById("hour");
+  for(let i=0;i<24;i++){
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    if(i === now.getHours()) opt.selected = true;
-    hourSel.appendChild(opt);
+    const v=pad(i); opt.value=v; opt.textContent=v;
+    if(i===now.getHours()) opt.selected=true;
+    hSel.appendChild(opt);
   }
 
-  const minSel = document.getElementById("minute");
-  for(let i = 0; i < 60; i++){
-    const v = pad(i);
+  const miSel = document.getElementById("minute");
+  for(let i=0;i<60;i+=5){
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    if(i === Math.floor(now.getMinutes() / 10) * 10) opt.selected = true;
-    minSel.appendChild(opt);
+    const v=pad(i); opt.value=v; opt.textContent=v;
+    miSel.appendChild(opt);
   }
-};
+}
 
-const renderTable = () => {
+// 渲染表格
+function renderTable() {
   const tb = document.getElementById("tableBody");
-  tb.innerHTML = records.map((row, idx) => {
-    const formattedDate = formatDate(row[0]);
-    const formattedTime = formatTime(row[1]);
-    return `
-    <tr onclick="editRow(${idx})">
-      <td>${formattedDate}</td>
-      <td>${formattedTime}</td>
-      <td>${row[2] || ""}</td>
-      <td>${row[3] || ""}</td>
-      <td>${row[4] || ""}</td>
-      <td>${row[5] || ""}</td>
-      <td>${row[6] || ""}</td>
-    </tr>
-  `}).join("");
-};
+  tb.innerHTML = records.map((row, idx) => `
+  <tr onclick="editRow(${idx})">
+    <td>${formatDate(row[0])}</td>
+    <td>${formatTime(row[1])}</td>
+    <td>${row[2] || ""}</td>
+    <td>${row[3] || ""}</td>
+    <td>${row[4] || ""}</td>
+    <td>${row[5] || ""}</td>
+    <td>${row[6] || ""}</td>
+  </tr>`).join("");
+}
 
-const editRow = (idx) => {
+// 編輯
+function editRow(idx) {
   editIndex = idx;
   const row = records[idx];
   if (!row) return;
-  
-  const rawDate = row[0];
-  const rawTime = row[1];
-  const unitStr = row[2];
-  const densityStr = row[3];
-  const tempStr = row[4];
-  const userStr = row[5];
-  const noteStr = row[6];
 
-  let formattedDate = formatDate(rawDate);
-  let [y, m, d] = formattedDate.split("/");
-  const now = new Date();
-  const currentRocYear = now.getFullYear() - 1911;
-  y = y || currentRocYear;
-  m = m || String(now.getMonth() + 1).padStart(2, "0");
-  d = d || String(now.getDate()).padStart(2, "0");
+  let dStr = formatDate(row[0]);
+  let [y, m, d] = dStr.split("/");
+  let tStr = formatTime(row[1]);
+  let [h, mi] = tStr.split(":") || ["00","00"];
 
-  let formattedTime = formatTime(rawTime);
-  let [h, mi] = formattedTime.split(":");
-  h = h || String(now.getHours()).padStart(2, "0");
-  mi = mi || "00";
-
-  if(parseInt(y) >= 100 && parseInt(y) <= 125) {
-      document.getElementById("year").value = y;
-      document.getElementById("year").style.display = 'inline-block';
-      document.getElementById("yearInput").style.display = 'none';
-      yearInputMode = false;
+  if (y >= 100 && y <= 125) {
+    document.getElementById("year").value = y;
+    document.getElementById("year").style.display = "inline-block";
+    document.getElementById("yearInput").style.display = "none";
+    yearInputMode = false;
   } else {
-      document.getElementById("yearInput").value = y;
-      document.getElementById("year").style.display = 'none';
-      document.getElementById("yearInput").style.display = 'inline-block';
-      yearInputMode = true;
+    document.getElementById("yearInput").value = y;
+    document.getElementById("year").style.display = "none";
+    document.getElementById("yearInput").style.display = "inline-block";
+    yearInputMode = true;
   }
+
   document.getElementById("month").value = m;
   document.getElementById("day").value = d;
   document.getElementById("hour").value = h;
   document.getElementById("minute").value = mi;
-  document.getElementById("density").value = densityStr || "";
-  document.getElementById("temp").value = tempStr || "";
-  document.getElementById("user").value = userStr || "";
-  document.getElementById("note").value = noteStr || "";
+  document.getElementById("density").value = row[3] || "";
+  document.getElementById("temp").value = row[4] || "";
+  document.getElementById("user").value = row[5] || "";
+  document.getElementById("note").value = row[6] || "";
 
-  const unit = unitStr || "";
-  if(unit.startsWith("其他(")){
+  const unit = row[2] || "";
+  if (unit.startsWith("其他(")) {
     document.getElementById("unit").value = "其他";
     document.getElementById("otherUnit").style.display = "inline-block";
-    document.getElementById("otherUnit").value = unit.replace(/其他\((.*?)\)/, "$1");
+    document.getElementById("otherUnit").value = unit.replace(/其他\((.*?)\)/,"$1");
   } else {
     document.getElementById("unit").value = unit || "原液坑一";
     document.getElementById("otherUnit").style.display = "none";
     document.getElementById("otherUnit").value = "";
   }
+  setEditTip(`編輯第 ${idx+1} 筆`);
+}
 
-  setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
-};
-
-// =========================
-// 關鍵修復：不使用 application/json
-// =========================
-const loadFromSheet = async () => {
+// 讀取最新 50 筆
+async function loadFromSheet() {
   setStatus("讀取中...");
   try {
-    const formData = new FormData();
-    formData.append('data', JSON.stringify({ action: "load" }));
-
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: formData
-    });
-    
+    const fd = new FormData();
+    fd.append("data", JSON.stringify({ action: "load" }));
+    const res = await fetch(API_URL, { method: "POST", body: fd });
     const result = await res.json();
     if (result.status === "success") {
       records = result.data || [];
       renderTable();
-      setStatus(`✅ 已成功載入 ${records.length} 筆資料`);
+      setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
     } else {
-      setStatus("❌ 載入失敗：" + result.message, true);
+      setStatus("❌ 載入失敗", true);
     }
-  } catch (err) {
-    console.error(err);
-    setStatus("❌ 網路連線失敗，請檢查GAS設定", true);
+  } catch (e) {
+    console.error(e);
+    setStatus("❌ 網路連線失敗", true);
   }
-};
+}
 
-const saveData = async () => {
-  const pad = n => String(n).padStart(2, "0");
-  let year;
-  if(yearInputMode) {
-      year = document.getElementById("yearInput").value.trim();
-  } else {
-      year = document.getElementById("year").value;
-  }
+// 儲存（新增到最上方）
+async function saveData() {
+  const year = yearInputMode ? document.getElementById("yearInput").value.trim() : document.getElementById("year").value;
   const month = document.getElementById("month").value;
   const day = document.getElementById("day").value;
   const hour = document.getElementById("hour").value;
   const minute = document.getElementById("minute").value;
-
   const dateStr = `${year}/${month}/${day}`;
   const timeStr = `${hour}:${minute}`;
 
   let unit = document.getElementById("unit").value;
-  const otherUnit = document.getElementById("otherUnit").value.trim();
+  const other = document.getElementById("otherUnit").value.trim();
   const density = document.getElementById("density").value.trim();
   const temp = document.getElementById("temp").value.trim();
   const user = document.getElementById("user").value.trim();
   const note = document.getElementById("note").value.trim();
 
-  if(unit === "其他" && !otherUnit) return alert("請輸入自訂單元名稱");
-  if(!density || !temp || !user) return alert("請填寫所有必填欄位");
-  if(unit === "其他") unit = `其他(${otherUnit})`;
+  if (unit === "其他" && !other) return alert("請輸入自訂單元");
+  if (!density || !temp || !user) return alert("請填寫必填欄位");
+  if (unit === "其他") unit = `其他(${other})`;
 
   const newRow = [dateStr, timeStr, unit, density, temp, user, note];
 
   try {
-    const formData = new FormData();
-    formData.append('data', JSON.stringify({
+    const fd = new FormData();
+    fd.append("data", JSON.stringify({
       action: editIndex >= 0 ? "update" : "add",
       date: dateStr, time: timeStr, unit: unit,
       density: density, temp: temp, user: user, note: note,
       rowIndex: editIndex
     }));
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: formData
-    });
-
+    const res = await fetch(API_URL, { method: "POST", body: fd });
     const result = await res.json();
+
     if (result.status === "success") {
       if (editIndex >= 0) {
         records[editIndex] = newRow;
       } else {
         records.unshift(newRow);
+        if (records.length > 50) records.pop();
       }
       renderTable();
-      setStatus("✅ 資料儲存成功．已顯示在表格最上方");
+      setStatus("✅ 儲存成功．最新資料在最上方");
       clearForm();
     } else {
-      setStatus("❌ 儲存失敗：" + result.message, true);
+      setStatus("❌ 儲存失敗", true);
     }
-  } catch (err) {
-    console.error(err);
-    setStatus("❌ 儲存失敗，請檢查GAS", true);
+  } catch (e) {
+    console.error(e);
+    setStatus("❌ 網路錯誤", true);
   }
-};
+}
 
-const clearForm = () => {
+// 清空
+function clearForm() {
   document.getElementById("density").value = "";
   document.getElementById("temp").value = "";
   document.getElementById("user").value = "";
@@ -395,7 +356,7 @@ const clearForm = () => {
   document.getElementById("otherUnit").style.display = "none";
   editIndex = -1;
   setEditTip("");
-};
+}
 
 document.getElementById("unit").addEventListener("change", function(){
   document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";

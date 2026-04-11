@@ -37,7 +37,7 @@
     <div class="form-group">
         <label>測量日期：</label>
         <select id="year"></select>
-        <input type="number" id="yearInput" placeholder="年份" min="100" max="200">
+        <input type="number" id="yearInput" placeholder="年份" min="80" max="200">
         <button type="button" onclick="toggleYearInput()">手動輸入</button>
         / <select id="month"></select> / <select id="day"></select>
     </div>
@@ -119,50 +119,64 @@ function toggleYearInput() {
     }
 }
 
-// 輔助函數：格式化日期為 115/04/10（強制民國年）
+// 核心修复：统一解析 Google 表格日期 → 民國年格式 (YYYY/MM/DD)
 const formatDate = (input) => {
     if (!input) return "";
-    // 如果是字串格式
-    if (typeof input === "string") {
-        // 先處理 -1796/04/11 這種錯誤格式
-        if (input.includes("-")) {
-            const parts = input.split("/");
-            const adYear = parseInt(parts[0]) + 1911;
-            const rocYear = adYear - 1911;
-            return `${rocYear}/${parts[1]}/${parts[2]}`;
+    try {
+        // 处理 Google 表格日期字符串/时间戳
+        let date;
+        if (input instanceof Date) {
+            date = input;
+        } else {
+            // 清理异常字符，兼容所有格式
+            const cleanStr = String(input).trim().replace(/-/g, '/');
+            date = new Date(cleanStr);
         }
-        // 如果是 115/04/10 格式，直接返回
-        if (input.includes("/")) {
+
+        if (isNaN(date.getTime())) {
+            // 无法解析时，尝试直接拆分
+            const parts = String(input).split(/[\/\-T ]/).filter(Boolean);
+            if (parts.length >= 3) {
+                let y = parts[0];
+                // 如果是西元年，转民国
+                if (y.length === 4 && parseInt(y) > 1911) {
+                    y = parseInt(y) - 1911;
+                }
+                return `${y}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}`;
+            }
             return input;
         }
-        // 如果是 ISO 格式（如 0115-04-10T15:54:00.000Z）
-        if (input.includes("T")) {
-            const date = new Date(input);
-            const adYear = date.getFullYear();
-            const rocYear = adYear - 1911;
-            const month = String(date.getMonth() + 1).padStart(2, "0");
-            const day = String(date.getDate()).padStart(2, "0");
-            return `${rocYear}/${month}/${day}`;
-        }
+
+        // 标准日期格式化：西元年 → 民国
+        const rocYear = date.getFullYear() - 1911;
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${rocYear}/${month}/${day}`;
+    } catch (e) {
+        return String(input);
     }
-    return "";
 };
 
-// 輔助函數：格式化時間為 15:54
+// 核心修复：统一解析 Google 表格时间 → HH:MM 格式
 const formatTime = (input) => {
     if (!input) return "";
-    // 如果是 1899-12-30T10:50:00.000Z 格式
-    if (typeof input === "string" && input.includes("1899")) {
-        const date = new Date(input);
+    try {
+        // 处理时间格式
+        let date = new Date(input);
+        if (isNaN(date.getTime())) {
+            // 直接匹配 HH:MM
+            const match = String(input).match(/(\d{1,2}):(\d{1,2})/);
+            if (match) {
+                return `${match[1].padStart(2, '0')}:${match[2].padStart(2, '0')}`;
+            }
+            return input;
+        }
         const hour = String(date.getHours()).padStart(2, "0");
         const minute = String(date.getMinutes()).padStart(2, "0");
         return `${hour}:${minute}`;
+    } catch (e) {
+        return String(input);
     }
-    // 如果是已有的 15:54 格式
-    if (typeof input === "string" && input.includes(":")) {
-        return input;
-    }
-    return "";
 };
 
 // 狀態提示
@@ -173,15 +187,15 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間下拉選單初始化（年份到 125 年）
+// 日期時間下拉選單初始化（年份擴展到 135 年）
 const initDateTime = () => {
   const now = new Date();
   const currentRocYear = now.getFullYear() - 1911;
-  const pad = n => String(n).padStart(2, "0"); // 補零函數
+  const pad = n => String(n).padStart(2, "0");
 
-  // 年（民國年 100 ~ 125 年）
+  // 年（民國年 100 ~ 135 年）
   const yearSel = document.getElementById("year");
-  for(let i = 100; i <= 125; i++){
+  for(let i = 100; i <= 135; i++){
     const opt = document.createElement("option");
     opt.value = i;
     opt.textContent = i;
@@ -234,7 +248,7 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染（讀取時自動格式化，強制民國年）
+// 表格渲染（统一格式化）
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((row, idx) => {
@@ -253,7 +267,7 @@ const renderTable = () => {
   `}).join("");
 };
 
-// 編輯列（讀取時自動解析日期時間）
+// 編輯列（自动解析格式）
 const editRow = (idx) => {
   editIndex = idx;
   const row = records[idx];
@@ -267,24 +281,23 @@ const editRow = (idx) => {
   const userStr = row[5];
   const noteStr = row[6];
 
-  // 解析日期
+  // 统一解析日期
   let formattedDate = formatDate(rawDate);
-  let [y, m, d] = formattedDate.split("/");
+  let [y, m, d] = formattedDate.split("/").map(item => item || '');
   const now = new Date();
   const currentRocYear = now.getFullYear() - 1911;
   y = y || currentRocYear;
   m = m || String(now.getMonth() + 1).padStart(2, "0");
   d = d || String(now.getDate()).padStart(2, "0");
 
-  // 解析時間
+  // 统一解析时间
   let formattedTime = formatTime(rawTime);
-  let [h, mi] = formattedTime.split(":");
+  let [h, mi] = formattedTime.split(":").map(item => item || '');
   h = h || String(now.getHours()).padStart(2, "0");
   mi = mi || "00";
 
   // 填入表單
-  // 年份處理：如果在下拉範圍內就用下拉，否則切換到手動輸入
-  if(parseInt(y) >= 100 && parseInt(y) <= 125) {
+  if(parseInt(y) >= 100 && parseInt(y) <= 135) {
       document.getElementById("year").value = y;
       document.getElementById("year").style.display = 'inline-block';
       document.getElementById("yearInput").style.display = 'none';
@@ -341,10 +354,10 @@ const loadFromSheet = async () => {
   }
 };
 
-// 儲存資料（強制民國年格式）
+// 儲存資料
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
-  // 獲取年份（判斷是下拉還是手動輸入）
+  // 獲取年份
   let year;
   if(yearInputMode) {
       year = document.getElementById("yearInput").value.trim();
@@ -356,7 +369,6 @@ const saveData = async () => {
   const hour = document.getElementById("hour").value;
   const minute = document.getElementById("minute").value;
 
-  // 強制格式化為 115/04/10 和 15:54
   const dateStr = `${year}/${month}/${day}`;
   const timeStr = `${hour}:${minute}`;
 

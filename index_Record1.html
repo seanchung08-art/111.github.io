@@ -96,7 +96,7 @@
 // ======================
 // 請替換成你自己的 Google Apps Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbyyjzt58GHj3jdgYTUocSMJLwHeMGq6p5NeDGudL5WIdTFLpQN44LvOoRO29Ig2LJxj/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxbnknfC4azVdaMJ8KLJ0NSHA1KtoYq31ZzDu7pN_7y39LtQahwIj-UbXjiFrT3TtaG/exec";
 
 let records = [];
 let editIndex = -1;
@@ -302,29 +302,33 @@ const editRow = (idx) => {
   setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
-// 讀取試算表資料（修復跨域 + 正确请求格式）
+// 讀取試算表資料（修復版）
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      mode: 'no-cors',
       headers: {
-        'Content-Type': 'text/plain'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ action: "load" })
     });
     
-    records = [];
-    renderTable();
-    setStatus(`✅ 已成功載入資料`);
+    const result = await res.json();
+    if (result.status === "success") {
+      records = result.data || [];
+      renderTable();
+      setStatus(`✅ 已成功載入 ${records.length} 筆資料`);
+    } else {
+      setStatus("❌ 載入失敗：" + result.message, true);
+    }
   } catch (err) {
     console.error(err);
     setStatus("❌ 網路連線失敗，請檢查GAS設定", true);
   }
 };
 
-// 儲存資料（修復格式）
+// 儲存資料（修復版）
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
   let year;
@@ -365,23 +369,27 @@ const saveData = async () => {
   };
 
   try {
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: "POST",
-      mode: 'no-cors',
       headers: {
-        'Content-Type': 'text/plain'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     });
     
-    setStatus("✅ 資料儲存成功");
-    setTimeout(() => {
-      loadFromSheet();
-      clearForm();
-    }, 800);
+    const result = await res.json();
+    if (result.status === "success") {
+      setStatus("✅ 資料儲存成功");
+      setTimeout(() => {
+        loadFromSheet();
+        clearForm();
+      }, 800);
+    } else {
+      setStatus("❌ 儲存失敗：" + result.message, true);
+    }
   } catch (err) {
     console.error(err);
-    setStatus("❌ 儲存失敗", true);
+    setStatus("❌ 儲存失敗，請檢查GAS", true);
   }
 };
 

@@ -93,16 +93,12 @@
 </div>
 
 <script>
-// ======================
-// 請替換成你自己的 Google Apps Script 網址
-// ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxGieJsgWv0tuDOkH8e5e7RZmszJ0ypj3l9itVCipr9XEyngboNipNU4dSDz1AB_cnA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzDNqVyxuiXOomNM5TfylKGawUyjnakRKSlsZJne0YrXZz1TX2LY-k4GfqxP0qr-K0O/exec";
 
 let records = [];
 let editIndex = -1;
 let yearInputMode = false;
 
-// 年份輸入模式切換
 function toggleYearInput() {
     const yearSel = document.getElementById('year');
     const yearInput = document.getElementById('yearInput');
@@ -118,7 +114,6 @@ function toggleYearInput() {
     }
 }
 
-// 輔助函數：格式化日期為 115/04/10（強制民國年）
 const formatDate = (input) => {
     if (!input) return "";
     if (typeof input === "string") {
@@ -143,7 +138,6 @@ const formatDate = (input) => {
     return "";
 };
 
-// 輔助函數：格式化時間為 15:54
 const formatTime = (input) => {
     if (!input) return "";
     if (typeof input === "string" && input.includes("1899")) {
@@ -158,7 +152,6 @@ const formatTime = (input) => {
     return "";
 };
 
-// 狀態提示
 const setStatus = (msg, err=false) => {
   const el = document.getElementById("status");
   el.textContent = msg;
@@ -166,7 +159,6 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間下拉選單初始化（年份到 125 年）
 const initDateTime = () => {
   const now = new Date();
   const currentRocYear = now.getFullYear() - 1911;
@@ -222,7 +214,6 @@ const initDateTime = () => {
   }
 };
 
-// 表格渲染
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = records.map((row, idx) => {
@@ -241,7 +232,6 @@ const renderTable = () => {
   `}).join("");
 };
 
-// 編輯列
 const editRow = (idx) => {
   editIndex = idx;
   const row = records[idx];
@@ -302,12 +292,13 @@ const editRow = (idx) => {
   setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
-// 讀取試算表資料
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
     const res = await fetch(API_URL, {
       method: "POST",
+      mode: 'cors',
+      redirect: 'follow',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: "load" })
     });
@@ -326,7 +317,6 @@ const loadFromSheet = async () => {
   }
 };
 
-// 儲存資料：立即顯示在表格最上方 + 儲存試算表
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
   let year;
@@ -354,13 +344,13 @@ const saveData = async () => {
   if(!density || !temp || !user) return alert("請填寫所有必填欄位");
   if(unit === "其他") unit = `其他(${otherUnit})`;
 
-  // 新資料陣列
   const newRow = [dateStr, timeStr, unit, density, temp, user, note];
 
   try {
-    // 送出到試算表
     const res = await fetch(API_URL, {
       method: "POST",
+      mode: 'cors',
+      redirect: 'follow',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: editIndex >= 0 ? "update" : "add",
@@ -373,14 +363,10 @@ const saveData = async () => {
     const result = await res.json();
     if (result.status === "success") {
       if (editIndex >= 0) {
-        // 編輯模式：更新該行
         records[editIndex] = newRow;
       } else {
-        // 新增模式：加到「最上方」最新排序
         records.unshift(newRow);
       }
-
-      // 立即更新網頁表格
       renderTable();
       setStatus("✅ 資料儲存成功．已顯示在表格最上方");
       clearForm();
@@ -393,7 +379,6 @@ const saveData = async () => {
   }
 };
 
-// 清空表單
 const clearForm = () => {
   document.getElementById("density").value = "";
   document.getElementById("temp").value = "";
@@ -406,12 +391,10 @@ const clearForm = () => {
   setEditTip("");
 };
 
-// 其他單元顯示切換
 document.getElementById("unit").addEventListener("change", function(){
   document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-// 初始化
 window.onload = async () => {
   initDateTime();
   await loadFromSheet();

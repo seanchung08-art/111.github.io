@@ -134,7 +134,7 @@
 <script>
 // ===================== 請填寫你的資訊 =====================
 const GIST_ID = "933258a9b4a1e36b29d8613285ba8b72";
-const TOKEN  = "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"; // 請確保這裡是純英文/數字，沒有中文或空格
+const TOKEN  = "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"; // 請確保這裡是純英文/數字，沒有中文或空格
 // ==========================================================
 
 const FILE_NAME = "data.json";
@@ -236,7 +236,7 @@ async function loadData() {
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        if (!TOKEN || TOKEN === "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") {
+        if (!TOKEN || TOKEN === "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") {
             throw new Error("請先設定GitHub Token");
         }
         

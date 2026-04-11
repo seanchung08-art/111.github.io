@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>比重溫度記錄表（雲端同步）</title>
+    <title>比重溫度記錄表（Google雲端同步）</title>
     <style>
         * { box-sizing: border-box; font-family: "Microsoft JhengHei", sans-serif; }
         body { margin: 10px; background: #f5f5f5; }
@@ -28,7 +28,7 @@
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（手機電腦雲端同步）</h2>
+    <h2>比重 / 溫度記錄表（Google雲端同步）</h2>
     <div id="status" class="status">啟動中...</div>
 
     <div class="form-group">
@@ -89,23 +89,13 @@
 </div>
 
 <script>
-// ==============================================
-// 穩定版：無需 Token，本地永久保存 + 雲端只讀同步
-// ==============================================
-const GIST_ID = "f59a858db670f0a698b473ad9281b11b";
-const FILE_NAME = "data.json";
+// ======================================
+// 請貼上你自己的 Google Apps Script 網址
+// ======================================
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxmrzMhQKNaMUWDjTEfTxIDT2P8WLNQ4BxtuJg3X8QLx6p73SZlusG17Dz3GETMMDbr/exec";
+
 let records = [];
 let selectedIndex = -1;
-
-// 本機儲存（永久不丟失，手機電腦都能用）
-function saveLocalBackup() {
-    localStorage.setItem("densityRecordsBackup", JSON.stringify(records));
-}
-
-function loadLocalBackup() {
-    const backup = localStorage.getItem("densityRecordsBackup");
-    return backup ? JSON.parse(backup) : [];
-}
 
 function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
@@ -113,7 +103,7 @@ function setStatus(msg, isError=false) {
     el.className = isError ? "status error" : "status success";
 }
 
-// 初始化日期時間（民國年）
+// 民國日期時間初始化
 function initDateTime() {
     const now = new Date();
     const rocYear = now.getFullYear() - 1911;
@@ -162,40 +152,33 @@ function initDateTime() {
     });
 }
 
-// 雲端載入（只讀，穩定不失效）
+// 從 Google Sheet 讀取
 async function loadData() {
     setStatus("雲端載入中...");
     try {
-        const res=await fetch(`https://api.github.com/gists/${GIST_ID}`);
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        const gist=await res.json();
-        const content=gist.files?.[FILE_NAME]?.content || "[]";
-        const cloudRecords=JSON.parse(content);
-        
-        // 合併雲端 + 本地資料，不丟失
-        const localRecords = loadLocalBackup();
-        const merged = [...cloudRecords, ...localRecords];
-        
-        // 去重：日期+時間+單元 完全相同視為重複
-        const unique = Array.from(new Map(merged.map(item => 
-            [`${item.date}|${item.time}|${item.unit}`, item]
-        )).values());
-        
-        records = unique.sort((a, b) => {
-            return new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`);
+        const res = await fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "load" })
         });
-        
-        saveLocalBackup();
+        const rows = await res.json();
+        rows.shift(); // 移除表頭
+        records = rows.map(r => ({
+            date: r[0]||"",
+            time: r[1]||"",
+            unit: r[2]||"",
+            density: r[3]||"",
+            temp: r[4]||"",
+            user: r[5]||"",
+            note: r[6]||""
+        }));
         renderTable();
-        setStatus(`✅ 載入成功（共 ${records.length} 筆）`);
+        setStatus(`✅ 載入成功（${records.length} 筆）`);
     } catch(e) {
-        records = loadLocalBackup();
-        renderTable();
-        setStatus(`⚠️ 雲端讀取失敗，使用本機資料（共 ${records.length} 筆）`, true);
+        setStatus("⚠️ 載入失敗", true);
     }
 }
 
-// 儲存：本地永久保存，不再需要 Token
+// 儲存到 Google Sheet
 async function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -210,16 +193,36 @@ async function saveData() {
     if(!density||!temp||!user) return alert("請填寫完整");
     if(unit==="其他") unit=`其他(${other})`;
 
-    const item={date,time,unit,density,temp,user,note};
-    selectedIndex>=0 ? records[selectedIndex]=item : records.unshift(item);
-    selectedIndex=-1;
-    
-    // 本地儲存（永久有效）
-    saveLocalBackup();
-    setStatus('✅ 儲存成功（本機永久保存）');
-    
-    renderTable();
-    clearForm();
+    try {
+        setStatus("儲存中...");
+        await fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({
+                action: "save", date, time, unit, density, temp, user, note
+            })
+        });
+        await loadData();
+        clearForm();
+        setStatus("✅ 雲端儲存成功");
+    } catch(e) {
+        setStatus("⚠️ 儲存失敗", true);
+    }
+}
+
+// 刪除
+async function deleteData() {
+    if(selectedIndex<0) return alert("請點選資料列");
+    if(!confirm("確定刪除？")) return;
+    try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "delete", index: selectedIndex })
+        });
+        await loadData();
+        setStatus("✅ 刪除成功");
+    } catch(e) {
+        setStatus("⚠️ 刪除失敗", true);
+    }
 }
 
 function renderTable() {
@@ -229,70 +232,59 @@ function renderTable() {
         const tr=document.createElement("tr");
         tr.onclick=()=>{ selectedIndex=i; fillForm(item); };
         tr.innerHTML=`
-            <td>${item.date||""}</td>
-            <td>${item.time||""}</td>
-            <td>${item.unit||""}</td>
-            <td>${item.density||""}</td>
-            <td>${item.temp||""}</td>
-            <td>${item.user||""}</td>
-            <td>${item.note||""}</td>
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.unit}</td>
+            <td>${item.density}</td>
+            <td>${item.temp}</td>
+            <td>${item.user}</td>
+            <td>${item.note}</td>
         `;
         tb.appendChild(tr);
     });
 }
 
 function fillForm(item) {
-    if(!item) return;
-    const [y,m,d]=(item.date||"").split("/");
-    const [h,i]=(item.time||"").split(":");
-    document.getElementById("year").value=y||"";
-    document.getElementById("month").value=m||"";
-    document.getElementById("day").value=d||"";
-    document.getElementById("hour").value=h||"";
-    document.getElementById("minute").value=i||"";
-    document.getElementById("density").value=item.density||"";
-    document.getElementById("temp").value=item.temp||"";
-    document.getElementById("user").value=item.user||"";
-    document.getElementById("note").value=item.note||"";
+    const [y,m,d] = item.date.split("/");
+    const [h,i] = item.time.split(":");
+    document.getElementById("year").value = y;
+    document.getElementById("month").value = m;
+    document.getElementById("day").value = d;
+    document.getElementById("hour").value = h;
+    document.getElementById("minute").value = i;
+    document.getElementById("density").value = item.density;
+    document.getElementById("temp").value = item.temp;
+    document.getElementById("user").value = item.user;
+    document.getElementById("note").value = item.note;
 }
 
 function clearForm() {
-    document.getElementById("density").value="";
-    document.getElementById("temp").value="";
-    document.getElementById("user").value="";
-    document.getElementById("note").value="";
-    document.getElementById("otherUnit").value="";
-    selectedIndex=-1;
-}
-
-async function deleteData() {
-    if(selectedIndex<0) return alert("請點選要刪除的資料");
-    if(!confirm("確定刪除？")) return;
-    records.splice(selectedIndex,1);
-    selectedIndex=-1;
-    saveLocalBackup();
-    setStatus('✅ 刪除成功');
-    renderTable();
+    document.getElementById("density").value = "";
+    document.getElementById("temp").value = "";
+    document.getElementById("user").value = "";
+    document.getElementById("note").value = "";
+    document.getElementById("otherUnit").value = "";
+    selectedIndex = -1;
 }
 
 function exportCSV() {
-    if(records.length===0) return alert("無資料可匯出");
-    let csv="日期,時間,單元,比重,溫度,測量者,備註\n";
+    if(records.length===0) return alert("無資料");
+    let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
     records.forEach(r=>{
-        csv+=`${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;
+        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;
     });
-    const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="比重記錄表.csv";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "比重記錄表.csv";
+    a.click();
 }
 
 document.getElementById("unit").addEventListener("change",function(){
-    document.getElementById("otherUnit").style.display=this.value==="其他"?"inline-block":"none";
+    document.getElementById("otherUnit").style.display = this.value==="其他"?"inline-block":"none";
 });
 
-window.onload=()=>{ initDateTime(); loadData(); };
+window.onload = () => { initDateTime(); loadData(); };
 </script>
 </body>
 </html>

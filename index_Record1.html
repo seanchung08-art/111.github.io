@@ -162,7 +162,6 @@ function searchByDate() {
     setStatus(`查詢完成：${filtered.length} 筆`);
 }
 
-// 從本地載入
 function loadData() {
     setStatus("載入中...");
     try {
@@ -179,8 +178,13 @@ function loadData() {
 function renderTable(data) {
     tableBody.innerHTML = data.map((item,i) => `
         <tr onclick="selectRecord(${i})">
-            <td>${item.date}</td><td>${item.time}</td><td>${item.unit}</td>
-            <td>${item.density}</td><td>${item.temp}</td><td>${item.user}</td><td>${item.note}</td>
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.unit}</td>
+            <td>${item.density}</td>
+            <td>${item.temp}</td>
+            <td>${item.user}</td>
+            <td>${item.note}</td>
         </tr>
     `).join("");
 }
@@ -203,7 +207,7 @@ function selectRecord(idx) {
     setStatus("已載入資料，修改後按「確認送出」");
 }
 
-// 儲存到本地
+// 儲存並立即顯示在表格
 function saveData() {
     const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
     const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
@@ -222,19 +226,23 @@ function saveData() {
 
     if(isEditMode) {
         records[selectedIndex] = record;
-        setStatus("✅ 修改完成");
+        setStatus("✅ 修改完成，表格已更新");
     } else {
         records.unshift(record);
-        setStatus("✅ 儲存成功");
+        setStatus("✅ 儲存成功，已顯示在表格");
     }
 
+    // 儲存到本地
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    
+    // 立即更新表格
+    filtered = [...records];
+    renderTable(filtered);
+    
     isEditMode = false;
     clearForm();
-    loadData();
 }
 
-// 本地刪除
 function deleteData() {
     if(selectedIndex<0) return alert("請點選資料");
     if(!confirm("確定刪除？")) return;
@@ -255,7 +263,6 @@ function clearForm() {
     isEditMode = false;
 }
 
-// 匯出CSV
 function exportCSV() {
     const data = filtered.length ? filtered : records;
     if(!data.length) return alert("無資料");

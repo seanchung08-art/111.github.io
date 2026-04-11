@@ -245,7 +245,7 @@ async function saveToGist() {
         const res = await fetch("https://api.github.com/gists/" + GIST_ID, {
             method: "PATCH",
             headers: {
-                "Authorization": `token ${cleanToken}`,
+                "Authorization": `Bearer ${cleanToken}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({

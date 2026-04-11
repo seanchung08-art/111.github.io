@@ -93,7 +93,10 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzDNqVyxuiXOomNM5TfylKGawUyjnakRKSlsZJne0YrXZz1TX2LY-k4GfqxP0qr-K0O/exec";
+// ======================
+// 請確保這裡是你最新部署的 GAS 網址
+// ======================
+const API_URL = "https://script.google.com/macros/s/AKfycbxGieJsgWv0tuDOkH8e5e7RZmszJ0ypj3l9itVCipr9XEyngboNipNU4dSDz1AB_cnA/exec";
 
 let records = [];
 let editIndex = -1;
@@ -292,15 +295,18 @@ const editRow = (idx) => {
   setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
+// =========================
+// 關鍵修復：不使用 application/json
+// =========================
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
+    const formData = new FormData();
+    formData.append('data', JSON.stringify({ action: "load" }));
+
     const res = await fetch(API_URL, {
       method: "POST",
-      mode: 'cors',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: "load" })
+      body: formData
     });
     
     const result = await res.json();
@@ -347,17 +353,17 @@ const saveData = async () => {
   const newRow = [dateStr, timeStr, unit, density, temp, user, note];
 
   try {
+    const formData = new FormData();
+    formData.append('data', JSON.stringify({
+      action: editIndex >= 0 ? "update" : "add",
+      date: dateStr, time: timeStr, unit: unit,
+      density: density, temp: temp, user: user, note: note,
+      rowIndex: editIndex
+    }));
+
     const res = await fetch(API_URL, {
       method: "POST",
-      mode: 'cors',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: editIndex >= 0 ? "update" : "add",
-        date: dateStr, time: timeStr, unit: unit,
-        density: density, temp: temp, user: user, note: note,
-        rowIndex: editIndex
-      })
+      body: formData
     });
 
     const result = await res.json();

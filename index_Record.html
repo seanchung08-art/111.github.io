@@ -133,9 +133,9 @@
 
 <script>
 // ==============================================
-// 🔑 請務必替換成你自己的資訊（這裡只是範例，請改寫！）
+// ✅ 已經幫你填好「你的專屬資訊」直接用
 // ==============================================
-const GIST_ID ="f59a858db670f0a698b473ad9281b11b";
+const GIST_ID = "f59a858db670f0a698b473ad9281b11b";
 const TOKEN  = "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";
 // ==============================================
 
@@ -207,11 +207,6 @@ function initDateTime() {
 async function loadData() {
     setStatus("雲端載入中...");
     try {
-        // 基礎參數檢查
-        if (!GIST_ID || GIST_ID === "你的Gist ID") {
-            throw new Error("請先設定正確的 Gist ID");
-        }
-
         const response = await fetch("https://api.github.com/gists/" + GIST_ID);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
@@ -239,25 +234,15 @@ async function loadData() {
     }
 }
 
-// 雲端儲存（修正Token驗證邏輯）
+// 雲端儲存（修正 401 驗證格式）
 async function saveToGist() {
     setStatus("雲端儲存中...");
     try {
-        // 修正：只有Token未設定時才報錯
-        if (!TOKEN || TOKEN === "你的GitHub Personal Access Token") {
-            throw new Error("請先設定 GitHub Token");
-        }
-        if (!GIST_ID) {
-            throw new Error("請先設定 Gist ID");
-        }
-
-        // 清除Token中非ASCII字元，避免Request Header錯誤
-        const validToken = TOKEN.replace(/[^\x00-\x7F]/g, '').trim();
-
         const res = await fetch("https://api.github.com/gists/" + GIST_ID, {
             method: "PATCH",
             headers: {
-                "Authorization": "token " + validToken,
+                "Authorization": `Bearer ${TOKEN}`,
+                "Accept": "application/vnd.github.v3+json",
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
@@ -269,7 +254,10 @@ async function saveToGist() {
             })
         });
 
-        if (!res.ok) throw new Error(`伺服器回應 ${res.status}`);
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`儲存失敗 ${res.status}`);
+        }
         setStatus("✅ 雲端儲存成功");
     } catch (e) {
         setStatus("❌ 儲存失敗：" + e.message, true);

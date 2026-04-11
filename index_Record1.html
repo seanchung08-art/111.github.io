@@ -96,7 +96,7 @@
 // ======================
 // 請替換成你自己的 Google Apps Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbxbnknfC4azVdaMJ8KLJ0NSHA1KtoYq31ZzDu7pN_7y39LtQahwIj-UbXjiFrT3TtaG/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyyjzt58GHj3jdgYTUocSMJLwHeMGq6p5NeDGudL5WIdTFLpQN44LvOoRO29Ig2LJxj/exec";
 
 let records = [];
 let editIndex = -1;
@@ -302,15 +302,13 @@ const editRow = (idx) => {
   setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
-// 讀取試算表資料（修復版）
+// 讀取試算表資料
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: "load" })
     });
     
@@ -328,7 +326,7 @@ const loadFromSheet = async () => {
   }
 };
 
-// 儲存資料（修復版）
+// 儲存資料：立即顯示在表格最上方 + 儲存試算表
 const saveData = async () => {
   const pad = n => String(n).padStart(2, "0");
   let year;
@@ -356,34 +354,36 @@ const saveData = async () => {
   if(!density || !temp || !user) return alert("請填寫所有必填欄位");
   if(unit === "其他") unit = `其他(${otherUnit})`;
 
-  const data = {
-    action: editIndex >= 0 ? "update" : "add",
-    date: dateStr,
-    time: timeStr,
-    unit: unit,
-    density: density,
-    temp: temp,
-    user: user,
-    note: note,
-    rowIndex: editIndex
-  };
+  // 新資料陣列
+  const newRow = [dateStr, timeStr, unit, density, temp, user, note];
 
   try {
+    // 送出到試算表
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: editIndex >= 0 ? "update" : "add",
+        date: dateStr, time: timeStr, unit: unit,
+        density: density, temp: temp, user: user, note: note,
+        rowIndex: editIndex
+      })
     });
-    
+
     const result = await res.json();
     if (result.status === "success") {
-      setStatus("✅ 資料儲存成功");
-      setTimeout(() => {
-        loadFromSheet();
-        clearForm();
-      }, 800);
+      if (editIndex >= 0) {
+        // 編輯模式：更新該行
+        records[editIndex] = newRow;
+      } else {
+        // 新增模式：加到「最上方」最新排序
+        records.unshift(newRow);
+      }
+
+      // 立即更新網頁表格
+      renderTable();
+      setStatus("✅ 資料儲存成功．已顯示在表格最上方");
+      clearForm();
     } else {
       setStatus("❌ 儲存失敗：" + result.message, true);
     }

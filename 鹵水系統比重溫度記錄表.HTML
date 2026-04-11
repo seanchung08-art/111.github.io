@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>比重 / 溫度 記錄表</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+        body {
+            margin: 30px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        label {
+            width: 100px;
+            font-weight: bold;
+        }
+        select, input {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input:read-only {
+            background: #f0f0f0;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        .btn-confirm { background: #4CAF50; color: white; }
+        .btn-delete { background: #f44336; color: white; }
+        .btn-download { background: #2196F3; color: white; }
+        .btn-sync { background: #6a1b9a; color: white; }
+        .page-btn {
+            padding: 6px 12px;
+            margin: 0 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+        }
+        table, th, td {
+            border: 1px solid #333;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #e0e0e0;
+        }
+        tr:hover {
+            background: #f0f8ff;
+            cursor: pointer;
+        }
+        #otherUnit {
+            display: none;
+            margin-left: 5px;
+        }
+        .pagination {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .status {
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>比重 / 溫度 記錄表（GitHub 雲端版）</h2>
+
+        <div id="status" class="status"></div>
+
+        <div class="form-group">
+            <label>量測日期：</label>
+            <select id="year"></select> /
+            <select id="month"></select> /
+            <select id="day"></select>
+        </div>
+
+        <div class="form-group">
+            <label>量測時間：</label>
+            <select id="hour"></select> :
+            <select id="minute"></select>
+        </div>
+
+        <div class="form-group">
+            <label>單元名稱：</label>
+            <select id="unit">
+                <option value="原液坑一">原液坑一</option>
+                <option value="原液坑二">原液坑二</option>
+                <option value="VVCC#A">VVCC#A</option>
+                <option value="VVCC#B">VVCC#B</option>
+                <option value="VVCC#C">VVCC#C</option>
+                <option value="結晶罐#A">結晶罐#A</option>
+                <option value="結晶罐#B">結晶罐#B</option>
+                <option value="結晶罐#C">結晶罐#C</option>
+                <option value="濃縮液槽">濃縮液槽</option>
+                <option value="應急坑">應急坑</option>
+                <option value="其他">其他</option>
+            </select>
+            <input type="text" id="otherUnit" placeholder="請輸入自訂單元">
+        </div>
+
+        <div class="form-group">
+            <label>比重：</label>
+            <input type="number" id="density" step="0.001" placeholder="範例：1.015">
+        </div>
+
+        <div class="form-group">
+            <label>溫度：</label>
+            <input type="number" id="temp" placeholder="範例：25">
+        </div>
+
+        <div class="form-group">
+            <label>測量者：</label>
+            <input type="text" id="user" placeholder="請輸入姓名">
+        </div>
+
+        <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
+        <button class="btn btn-delete" onclick="deleteData()">刪除選取</button>
+        <button class="btn btn-download" onclick="exportCSV()">下載CSV</button>
+        <button class="btn btn-sync" onclick="loadFromGitHub()">重新整理</button>
+
+        <table id="recordTable">
+            <thead>
+                <tr>
+                    <th>量測日期</th>
+                    <th>量測時間</th>
+                    <th>單元名稱</th>
+                    <th>比重</th>
+                    <th>溫度</th>
+                    <th>測量者</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+
+        <div class="pagination">
+            <button class="page-btn" onclick="prevPage()">上一頁</button>
+            <span id="pageInfo">第 1 頁 / 共 1 頁</span>
+            <button class="page-btn" onclick="nextPage()">下一頁</button>
+        </div>
+    </div>
+
+    <script>
+        // ===================== 請填寫你的 GitHub 資訊 =====================
+        const CONFIG = {
+            OWNER: "seanchung08-art",      // 例如：chungchangyen
+            REPO: "seanchung08-art.github.io",         // 例如：density-record
+            PATH: "data.json",            // 資料存在這個檔案
+            TOKEN: "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"  // 必須有 repo 權限
+        };
+        // =================================================================
+
+        let recordList = [];
+        let selectIndex = -1;
+        const pageSize = 100;
+        let currentPage = 1;
+        let currentSha = null;
+
+        // 狀態提示
+        function setStatus(msg, isError = false) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = isError ? 'status error' : 'status success';
+        }
+
+        // 民國年
+        const yearSel = document.getElementById('year');
+        for(let i=110; i<=120; i++){
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i;
+            yearSel.appendChild(opt);
+        }
+
+        // 月份
+        const monthSel = document.getElementById('month');
+        for(let i=1; i<=12; i++){
+            let m = i.toString().padStart(2,'0');
+            let opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            monthSel.appendChild(opt);
+        }
+
+        // 日期
+        const daySel = document.getElementById('day');
+        for(let i=1; i<=31; i++){
+            let d = i.toString().padStart(2,'0');
+            let opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            daySel.appendChild(opt);
+        }
+
+        // 小時
+        const hourSel = document.getElementById('hour');
+        for(let i=0; i<24; i++){
+            let h = i.toString().padStart(2,'0');
+            let opt = document.createElement('option');
+            opt.value = h;
+            opt.textContent = h;
+            hourSel.appendChild(opt);
+        }
+
+        // 分鐘 10 分間隔
+        const minSel = document.getElementById('minute');
+        const minuteList = ['00','10','20','30','40','50'];
+        for(let m of minuteList){
+            let opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            minSel.appendChild(opt);
+        }
+
+        // 其他單元
+        document.getElementById('unit').addEventListener('change', function(){
+            const otherInput = document.getElementById('otherUnit');
+            if(this.value === '其他'){
+                otherInput.style.display = 'inline';
+            }else{
+                otherInput.style.display = 'none';
+                otherInput.value = '';
+            }
+        });
+
+        // 從 GitHub 讀取 data.json
+        async function loadFromGitHub() {
+            setStatus("讀取雲端資料中…");
+            try {
+                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
+                const res = await fetch(api, {
+                    headers: { Authorization: `token ${CONFIG.TOKEN}` }
+                });
+
+                if (!res.ok) throw new Error("讀取失敗");
+                const data = await res.json();
+                currentSha = data.sha;
+
+                const content = atob(data.content.replace(/\s/g, ''));
+                recordList = JSON.parse(content) || [];
+
+                renderTable();
+                setStatus("雲端資料載入完成");
+            } catch (e) {
+                setStatus("載入失敗：" + e.message, true);
+            }
+        }
+
+        // 儲存到 GitHub
+        async function saveToGitHub() {
+            setStatus("儲存至雲端…");
+            try {
+                const api = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/contents/${CONFIG.PATH}`;
+                const content = btoa(JSON.stringify(recordList, null, 2));
+
+                const body = {
+                    message: "更新比重溫度記錄",
+                    content: content,
+                    sha: currentSha
+                };
+
+                const res = await fetch(api, {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `token ${CONFIG.TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (!res.ok) throw new Error("儲存失敗");
+                const data = await res.json();
+                currentSha = data.content.sha;
+                setStatus("雲端儲存成功");
+            } catch (e) {
+                setStatus("儲存失敗：" + e.message, true);
+            }
+        }
+
+        // 自動日期時間
+        function setNowDateTime() {
+            const now = new Date();
+            const year = now.getFullYear() - 1911;
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const hour = now.getHours().toString().padStart(2, '0');
+            
+            const nowMin = now.getMinutes();
+            const min = minuteList.find(m => parseInt(m) > nowMin) || '00';
+
+            yearSel.value = year;
+            monthSel.value = month;
+            daySel.value = day;
+            hourSel.value = hour;
+            minSel.value = min;
+        }
+
+        // 儲存
+        async function saveData(){
+            const date = `${yearSel.value}/${monthSel.value}/${daySel.value}`;
+            const time = `${hourSel.value}:${minSel.value}`;
+            let unit = document.getElementById('unit').value;
+            const otherText = document.getElementById('otherUnit').value.trim();
+            const density = document.getElementById('density').value.trim();
+            const temp = document.getElementById('temp').value.trim();
+            const user = document.getElementById('user').value.trim();
+
+            if(unit === '其他' && otherText === ''){
+                alert('請輸入其他單元名稱！');
+                return;
+            }
+            if(!density || !temp || !user){
+                alert('請填寫完整資訊！');
+                return;
+            }
+
+            if(unit === '其他') unit = `其他(${otherText})`;
+            const data = { date, time, unit, density, temp, user };
+
+            if(selectIndex >= 0){
+                recordList[selectIndex] = data;
+                selectIndex = -1;
+            }else{
+                recordList.unshift(data);
+            }
+
+            await saveToGitHub();
+            currentPage = 1;
+            renderTable();
+            clearForm();
+        }
+
+        // 分頁
+        function renderTable(){
+            const tbody = document.getElementById('tableBody');
+            const totalPages = Math.ceil(recordList.length / pageSize);
+            tbody.innerHTML = '';
+
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageData = recordList.slice(start, end);
+
+            pageData.forEach((item, idx) => {
+                let tr = document.createElement('tr');
+                const realIndex = start + idx;
+                tr.onclick = () => selectRow(realIndex);
+                tr.innerHTML = `
+                    <td>${item.date}</td>
+                    <td>${item.time}</td>
+                    <td>${item.unit}</td>
+                    <td>${item.density}</td>
+                    <td>${item.temp}</td>
+                    <td>${item.user}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('pageInfo').textContent = `第 ${currentPage} 頁 / 共 ${totalPages} 頁`;
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(recordList.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+            }
+        }
+
+        // 選取
+        function selectRow(idx){
+            selectIndex = idx;
+            const d = recordList[idx];
+            const [y,m,dy] = d.date.split('/');
+            const [h,i] = d.time.split(':');
+
+            yearSel.value = y;
+            monthSel.value = m;
+            daySel.value = dy;
+            hourSel.value = h;
+            minSel.value = i;
+
+            if(d.unit.startsWith('其他(')){
+                document.getElementById('unit').value = '其他';
+                let ou = document.getElementById('otherUnit');
+                ou.style.display = 'inline';
+                ou.value = d.unit.replace(/其他\((.*)\)/,'$1');
+            }else{
+                document.getElementById('unit').value = d.unit;
+                document.getElementById('otherUnit').style.display = 'none';
+                document.getElementById('otherUnit').value = '';
+            }
+
+            document.getElementById('density').value = d.density;
+            document.getElementById('temp').value = d.temp;
+            document.getElementById('user').value = d.user;
+        }
+
+        // 刪除
+        async function deleteData(){
+            if(selectIndex < 0){
+                alert('請先點選表格資料');
+                return;
+            }
+            if(confirm('確定刪除?')){
+                recordList.splice(selectIndex,1);
+                selectIndex = -1;
+                await saveToGitHub();
+                renderTable();
+                clearForm();
+            }
+        }
+
+        // 清空
+        function clearForm(){
+            document.getElementById('density').value = '';
+            document.getElementById('temp').value = '';
+            document.getElementById('user').value = '';
+            document.getElementById('otherUnit').value = '';
+            document.getElementById('otherUnit').style.display = 'none';
+            setNowDateTime();
+        }
+
+        // CSV
+        function exportCSV() {
+            if (recordList.length === 0) {
+                alert('無資料可匯出！');
+                return;
+            }
+
+            const headers = ['量測日期','量測時間','單元名稱','比重','溫度','測量者'];
+            let csv = headers.join(',') + '\r\n';
+
+            recordList.forEach(item => {
+                const row = [
+                    `"${item.date}"`,
+                    `"${item.time}"`,
+                    `"${item.unit}"`,
+                    `"${item.density}"`,
+                    `"${item.temp}"`,
+                    `"${item.user}"`
+                ];
+                csv += row.join(',') + '\r\n';
+            });
+
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: text/csv });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '比重溫度記錄表.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 初始化
+        window.onload = function () {
+            loadFromGitHub();
+            setNowDateTime();
+        };
+    </script>
+</body>
+</html>

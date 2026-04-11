@@ -90,14 +90,14 @@
 
 <script>
 // ======================
-// 貼上你的 Google Script 網址
+// 貼上你的 Google Apps Script 網址
 // ======================
-const API_URL = "https://script.google.com/macros/s/AKfycbwxnFBjcbJaOcF3ovtPCUMiXyNCyz0zEb2LYchlJZ-1VCJxbFAP2TDPj-GPAO_E1kDL/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw1MzLyO9v9B-DXqkO_IDVW1KhrAY5nzB-B-OZWSMyNNbJ-shy7vAgcuKQLQiQR3-n3/exec";
 
 let records = [];
 let editIndex = -1;
 
-// 狀態
+// 狀態提示
 const setStatus = (msg, err=false) => {
   const el = document.getElementById("status");
   el.textContent = msg;
@@ -105,155 +105,190 @@ const setStatus = (msg, err=false) => {
 };
 const setEditTip = (msg) => document.getElementById("editTip").textContent = msg;
 
-// 日期時間初始化
+// 日期時間下拉選單初始化
 const initDateTime = () => {
   const now = new Date();
-  const roc = now.getFullYear() - 1911;
-  const fill = n => String(n).padStart(2, "0");
+  const roc = now.getFullYear() - 1911; // 民國年
+  const pad = n => String(n).padStart(2, "0"); // 補零函數
 
-  // 年
-  const y = document.getElementById("year");
-  for(let i=roc-2;i<=roc+1;i++){
+  // 年（民國年，前後各2年）
+  const yearSel = document.getElementById("year");
+  for(let i = roc - 2; i <= roc + 1; i++){
     const opt = document.createElement("option");
-    opt.value = opt.textContent = i;
+    opt.value = i;
+    opt.textContent = i;
     if(i === roc) opt.selected = true;
-    y.appendChild(opt);
+    yearSel.appendChild(opt);
   }
-  // 月
-  const m = document.getElementById("month");
-  for(let i=1;i<=12;i++){
-    const v = fill(i);
+
+  // 月（01-12）
+  const monthSel = document.getElementById("month");
+  for(let i = 1; i <= 12; i++){
+    const v = pad(i);
     const opt = document.createElement("option");
-    opt.value = opt.textContent = v;
-    if(i === now.getMonth()+1) opt.selected = true;
-    m.appendChild(opt);
+    opt.value = v;
+    opt.textContent = v;
+    if(i === now.getMonth() + 1) opt.selected = true;
+    monthSel.appendChild(opt);
   }
-  // 日
-  const d = document.getElementById("day");
-  for(let i=1;i<=31;i++){
-    const v = fill(i);
+
+  // 日（01-31）
+  const daySel = document.getElementById("day");
+  for(let i = 1; i <= 31; i++){
+    const v = pad(i);
     const opt = document.createElement("option");
-    opt.value = opt.textContent = v;
+    opt.value = v;
+    opt.textContent = v;
     if(i === now.getDate()) opt.selected = true;
-    d.appendChild(opt);
+    daySel.appendChild(opt);
   }
-  // 時
-  const h = document.getElementById("hour");
-  for(let i=0;i<24;i++){
-    const v = fill(i);
+
+  // 時（00-23）
+  const hourSel = document.getElementById("hour");
+  for(let i = 0; i < 24; i++){
+    const v = pad(i);
     const opt = document.createElement("option");
-    opt.value = opt.textContent = v;
+    opt.value = v;
+    opt.textContent = v;
     if(i === now.getHours()) opt.selected = true;
-    h.appendChild(opt);
+    hourSel.appendChild(opt);
   }
-  // 分
-  const min = document.getElementById("minute");
-  for(let i=0;i<60;i++){
-    const v = fill(i);
+
+  // 分（00-59）
+  const minSel = document.getElementById("minute");
+  for(let i = 0; i < 60; i++){
+    const v = pad(i);
     const opt = document.createElement("option");
-    opt.value = opt.textContent = v;
-    min.appendChild(opt);
+    opt.value = v;
+    opt.textContent = v;
+    if(i === Math.floor(now.getMinutes() / 10) * 10) opt.selected = true;
+    minSel.appendChild(opt);
   }
 };
 
-// 表格渲染（強制顯示文字格式）
+// 表格渲染
 const renderTable = () => {
   const tb = document.getElementById("tableBody");
-  tb.innerHTML = records.map((item,i)=>`
-    <tr onclick="editRow(${i})">
+  tb.innerHTML = records.map((item, idx) => `
+    <tr onclick="editRow(${idx})">
       <td>${item.date}</td>
       <td>${item.time}</td>
       <td>${item.unit}</td>
       <td>${item.density}</td>
       <td>${item.temp}</td>
       <td>${item.user}</td>
-      <td>${item.note||""}</td>
+      <td>${item.note || ""}</td>
     </tr>
   `).join("");
 };
 
-// 編輯
-const editRow = (i) => {
-  editIndex = i;
-  const item = records[i];
-  const [y,m,d] = item.date.split("/");
-  const [h,mi] = item.time.split(":");
-  
+// 編輯列
+const editRow = (idx) => {
+  editIndex = idx;
+  const item = records[idx];
+  const [y, m, d] = item.date.split("/");
+  const [h, mi] = item.time.split(":");
+
+  // 填入表單
   document.getElementById("year").value = y;
   document.getElementById("month").value = m;
   document.getElementById("day").value = d;
   document.getElementById("hour").value = h;
   document.getElementById("minute").value = mi;
-  
   document.getElementById("density").value = item.density;
   document.getElementById("temp").value = item.temp;
   document.getElementById("user").value = item.user;
   document.getElementById("note").value = item.note || "";
 
+  // 單元處理
   const unit = item.unit;
   if(unit.startsWith("其他(")){
     document.getElementById("unit").value = "其他";
     document.getElementById("otherUnit").style.display = "inline-block";
-    document.getElementById("otherUnit").value = unit.replace(/其他\((.*)\)/,"$1");
-  }else{
+    document.getElementById("otherUnit").value = unit.replace(/其他\((.*?)\)/, "$1");
+  } else {
     document.getElementById("unit").value = unit;
     document.getElementById("otherUnit").style.display = "none";
     document.getElementById("otherUnit").value = "";
   }
-  setEditTip(`編輯第 ${i+1} 筆`);
+
+  setEditTip(`正在編輯第 ${idx + 1} 筆資料`);
 };
 
-// 讀取工作表
+// 讀取試算表資料
 const loadFromSheet = async () => {
   setStatus("讀取中...");
   try {
-    const res = await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"load"})});
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "load" })
+    });
     const json = await res.json();
     if(json.status === "ok"){
       records = json.data;
       renderTable();
-      setStatus(`✅ 已載入 ${records.length} 筆`);
-    }else{
-      setStatus("⚠️ 讀取失敗",true);
+      setStatus(`✅ 已成功載入 ${records.length} 筆資料`);
+    } else {
+      setStatus("⚠️ 資料讀取失敗", true);
     }
-  }catch(e){
-    setStatus("❌ 連線失敗",true);
+  } catch (err) {
+    console.error(err);
+    setStatus("❌ 網路連線失敗，請檢查網路", true);
   }
 };
 
-// 確認送出（強制寫入文本格式）
+// 儲存資料（強制文字格式傳送）
 const saveData = async () => {
-  const Y = document.getElementById("year").value;
-  const M = document.getElementById("month").value;
-  const D = document.getElementById("day").value;
-  const HH = document.getElementById("hour").value;
-  const MM = document.getElementById("minute").value;
+  const pad = n => String(n).padStart(2, "0");
+  const year = document.getElementById("year").value;
+  const month = document.getElementById("month").value;
+  const day = document.getElementById("day").value;
+  const hour = document.getElementById("hour").value;
+  const minute = document.getElementById("minute").value;
 
-  // 強制格式為 115/04/11 和 15:00
-  const date = `${Y}/${M}/${D}`;
-  const time = `${HH}:${MM}`;
+  // 強制格式化為 115/04/05 和 15:30
+  const dateStr = `${year}/${month}/${day}`;
+  const timeStr = `${hour}:${minute}`;
 
   let unit = document.getElementById("unit").value;
-  const other = document.getElementById("otherUnit").value.trim();
+  const otherUnit = document.getElementById("otherUnit").value.trim();
   const density = document.getElementById("density").value.trim();
   const temp = document.getElementById("temp").value.trim();
   const user = document.getElementById("user").value.trim();
   const note = document.getElementById("note").value.trim();
 
-  if(unit === "其他" && !other) return alert("請輸入自訂單元");
-  if(!density || !temp || !user) return alert("請填寫完整");
-  if(unit === "其他") unit = `其他(${other})`;
+  // 欄位檢查
+  if(unit === "其他" && !otherUnit) return alert("請輸入自訂單元名稱");
+  if(!density || !temp || !user) return alert("請填寫所有必填欄位");
+  if(unit === "其他") unit = `其他(${otherUnit})`;
 
-  const data = { date, time, unit, density, temp, user, note };
+  // 組成資料物件
+  const data = {
+    date: dateStr,
+    time: timeStr,
+    unit: unit,
+    density: density,
+    temp: temp,
+    user: user,
+    note: note
+  };
+
+  // 判斷是新增還是修改
   const action = editIndex >= 0 ? "update" : "add";
   if(action === "update") data.rowIndex = editIndex;
 
-  await fetch(API_URL,{method:"POST",body:JSON.stringify({action,...data})});
+  // 送出資料
+  await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action, ...data })
+  });
+
+  // 重新讀取並清空表單
   await loadFromSheet();
   clearForm();
 };
 
-// 清空
+// 清空表單
 const clearForm = () => {
   document.getElementById("density").value = "";
   document.getElementById("temp").value = "";
@@ -266,13 +301,16 @@ const clearForm = () => {
   setEditTip("");
 };
 
-// 其他單元
-document.getElementById("unit").addEventListener("change",function(){
+// 其他單元顯示切換
+document.getElementById("unit").addEventListener("change", function(){
   document.getElementById("otherUnit").style.display = this.value === "其他" ? "inline-block" : "none";
 });
 
-// 啟動
-window.onload = async () => { initDateTime(); await loadFromSheet(); };
+// 初始化
+window.onload = async () => {
+  initDateTime();
+  await loadFromSheet();
+};
 </script>
 </body>
 </html>

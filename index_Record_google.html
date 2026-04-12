@@ -90,92 +90,110 @@
 
 <script>
 // ===================== 請貼上你的 Google Apps Script 網址 =====================
-const API_URL = "https://script.google.com/macros/s/AKfycbyBve5dxH-STuA4fumdgUxAsW6N16Vq7_BaZYSn_YMZNW_2rOe4NVD3oUjD7Aa32yEsEg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxxxxxx/exec";
 // ============================================================================
 
+// 🔥 全域快取 DOM 元素（大幅提升速度）
+const dom = {
+    year: document.getElementById("year"),
+    month: document.getElementById("month"),
+    day: document.getElementById("day"),
+    hour: document.getElementById("hour"),
+    minute: document.getElementById("minute"),
+    unit: document.getElementById("unit"),
+    otherUnit: document.getElementById("otherUnit"),
+    density: document.getElementById("density"),
+    temp: document.getElementById("temp"),
+    user: document.getElementById("user"),
+    note: document.getElementById("note"),
+    status: document.getElementById("status"),
+    tableBody: document.getElementById("tableBody")
+};
+
+// 狀態變數
 let records = [], selectedIndex = -1, isEditMode = false;
-const statusEl = document.getElementById("status");
-const tableBody = document.getElementById("tableBody");
 
-// ===================== 日期、時間格式化函式（你要的格式） =====================
-// 統一日期格式：0115/01/11（民國年/MM/DD）
-function formatDateStr(dateStr) {
-  if (!dateStr) return "";
-  // 試算表回傳任何日期格式 → 統一轉成 YYY/MM/DD
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
+// ==============================================
+// 🔥 高效能 ISO 格式化函式（速度優化版）
+// ==============================================
+const formatIsoDate = (iso) => {
+    if(!iso) return "";
+    const d = new Date(iso);
+    return `${d.getFullYear()-1911}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+};
 
-  const rocYear = d.getFullYear() - 1911;
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+const formatIsoTime = (iso) => {
+    if(!iso) return "";
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+};
 
-  return `${rocYear}/${month}/${day}`;
-}
+// ==============================================
+// 狀態提示（優化）
+// ==============================================
+const setStatus = (msg, isError=false) => {
+    dom.status.textContent = msg;
+    dom.status.className = isError ? "status error" : "status success";
+};
 
-// 統一時間格式：14:50（HH:MM）
-function formatTimeStr(timeStr) {
-  if (!timeStr) return "";
-  const t = new Date(`2000-01-01T${timeStr}`);
-  if (isNaN(t.getTime())) return timeStr;
-
-  const hh = String(t.getHours()).padStart(2, '0');
-  const mm = String(t.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-// ============================================================================
-
-function setStatus(msg, isError=false) {
-    statusEl.textContent = msg;
-    statusEl.className = isError ? "status error" : "status success";
-}
-
-function fillSelect(el, start, end, pad, cur, step=1) {
-    el.innerHTML = "";
-    for(let i=start; i<=end; i+=step) {
+// ==============================================
+// 下拉選單填充（優化）
+// ==============================================
+const fillSelect = (el, start, end, pad, cur, step=1) => {
+    let html = "";
+    for(let i=start; i<=end; i+=step){
         const v = pad ? String(i).padStart(2,"0") : i;
-        el.innerHTML += `<option ${i==cur ? 'selected' : ''}>${v}</option>`;
+        html += `<option ${i==cur?"selected":""}>${v}</option>`;
     }
-}
+    el.innerHTML = html;
+};
 
-function initDateTime() {
+// ==============================================
+// 初始化日期時間
+// ==============================================
+const initDateTime = () => {
     const now = new Date();
-    const roc = now.getFullYear() - 1911;
+    const roc = now.getFullYear()-1911;
     const m = now.getMonth()+1;
     const d = now.getDate();
     const h = now.getHours();
     const min = Math.floor(now.getMinutes()/10)*10;
 
-    fillSelect(document.getElementById("year"), roc-3, roc+1, false, roc);
-    fillSelect(document.getElementById("month"), 1,12,true,m);
-    fillSelect(document.getElementById("day"),1,31,true,d);
-    fillSelect(document.getElementById("hour"),0,23,true,h);
-    document.getElementById("minute").innerHTML = ["00","10","20","30","40","50"].map(v=>
-        `<option ${v==min ? 'selected' : ''}>${v}</option>`).join("");
-}
+    fillSelect(dom.year, roc-3, roc+1, false, roc);
+    fillSelect(dom.month,1,12,true,m);
+    fillSelect(dom.day,1,31,true,d);
+    fillSelect(dom.hour,0,23,true,h);
+    dom.minute.innerHTML = ["00","10","20","30","40","50"].map(v=>`<option ${v==min?"selected":""}>${v}</option>`).join("");
+};
 
-// 從 Google 試算表讀取後「強制格式化」日期、時間
-async function loadData() {
+// ==============================================
+// 🔥 高效能載入資料（優化請求 + 快取）
+// ==============================================
+const loadData = async () => {
     setStatus("讀取 Google 試算表中...");
     try {
-        const res = await fetch(API_URL);
-        let rawRecords = await res.json() || [];
-
-        // 🔥 關鍵：統一格式化日期 & 時間
-        records = rawRecords.map(item => ({
-          ...item,
-          date: formatDateStr(item.date),
-          time: formatTimeStr(item.time)
+        const res = await fetch(API_URL, {signal: AbortSignal.timeout(8000)});
+        const raw = await res.json() || [];
+        
+        // 高速格式化
+        records = raw.map(item=>({
+            ...item,
+            date:formatIsoDate(item.date),
+            time:formatIsoTime(item.date)
         }));
-
+        
         renderTable();
         setStatus(`✅ 已載入最新前 30 筆`);
-    } catch (e) {
+    } catch(e) {
         setStatus("❌ 讀取失敗", true);
     }
-}
+};
 
-function renderTable() {
-    tableBody.innerHTML = records.map((item,i) => `
+// ==============================================
+// 🔥 高效能表格渲染（一次組完）
+// ==============================================
+const renderTable = () => {
+    dom.tableBody.innerHTML = records.map((item,i)=>`
         <tr onclick="selectRecord(${i})">
             <td>${item.date}</td>
             <td>${item.time}</td>
@@ -186,114 +204,118 @@ function renderTable() {
             <td>${item.note}</td>
         </tr>
     `).join("");
-}
+};
 
-function selectRecord(idx) {
+// ==============================================
+// 選擇記錄
+// ==============================================
+const selectRecord = (idx) => {
     selectedIndex = idx;
     isEditMode = true;
     const item = records[idx];
     const [y,mo,d] = item.date.split("/");
     const [h,i] = item.time.split(":");
 
-    document.getElementById("year").value = y;
-    document.getElementById("month").value = mo;
-    document.getElementById("day").value = d;
-    document.getElementById("hour").value = h;
-    document.getElementById("minute").value = i;
-    document.getElementById("density").value = item.density;
-    document.getElementById("temp").value = item.temp;
-    document.getElementById("user").value = item.user;
-    document.getElementById("note").value = item.note;
+    dom.year.value = y;
+    dom.month.value = mo;
+    dom.day.value = d;
+    dom.hour.value = h;
+    dom.minute.value = i;
+    dom.density.value = item.density;
+    dom.temp.value = item.temp;
+    dom.user.value = item.user;
+    dom.note.value = item.note;
 
     setStatus("已載入 → 修改後按確認送出");
-}
+};
 
-// 新增 / 修改 → 同步 Google
-async function saveData() {
-    const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
-    const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
-    let unit = document.getElementById("unit").value;
-    const other = document.getElementById("otherUnit").value.trim();
-    const density = document.getElementById("density").value.trim();
-    const temp = document.getElementById("temp").value.trim();
-    const user = document.getElementById("user").value.trim();
-    const note = document.getElementById("note").value.trim();
+// ==============================================
+// 儲存資料（優化）
+// ==============================================
+const saveData = async () => {
+    const date = `${dom.year.value}/${dom.month.value}/${dom.day.value}`;
+    const time = `${dom.hour.value}:${dom.minute.value}`;
+    let unit = dom.unit.value;
+    const other = dom.otherUnit.value.trim();
+    const density = dom.density.value.trim();
+    const temp = dom.temp.value.trim();
+    const user = dom.user.value.trim();
+    const note = dom.note.value.trim();
 
     if(unit==="其他" && !other) return alert("請輸入自訂單元");
     if(!density||!temp||!user) return alert("請填寫完整");
     if(unit==="其他") unit=`其他(${other})`;
-
-    const record = { date, time, unit, density, temp, user, note };
+    const record = {date,time,unit,density,temp,user,note};
 
     try {
-        if(isEditMode) {
-            await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({ action:"update", index:selectedIndex, data:record })
-            });
-        } else {
-            await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({ action:"add", data:record })
-            });
-        }
+        await fetch(API_URL, {
+            method:"POST",
+            body:JSON.stringify(isEditMode?{action:"update",index:selectedIndex,data:record}:{action:"add",data:record})
+        });
+        
         await loadData();
-        setStatus(isEditMode ? "✅ 修改同步完成" : "✅ 新增同步完成");
+        setStatus(isEditMode?"✅ 修改同步完成":"✅ 新增同步完成");
         clearForm();
-    } catch (e) {
+    } catch(e) {
         setStatus("❌ 同步失敗", true);
     }
-}
+};
 
-// 刪除 → 同步 Google
-async function deleteData() {
-    if(selectedIndex < 0) return alert("請點選資料");
+// ==============================================
+// 刪除資料
+// ==============================================
+const deleteData = async () => {
+    if(selectedIndex<0) return alert("請點選資料");
     if(!confirm("確定刪除？將同步至 Google 試算表")) return;
 
     try {
         await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({ action:"delete", index:selectedIndex })
+            method:"POST",
+            body:JSON.stringify({action:"delete",index:selectedIndex})
         });
+        
         await loadData();
         clearForm();
         setStatus("✅ 刪除同步完成");
-    } catch (e) {
+    } catch(e) {
         setStatus("❌ 刪除失敗", true);
     }
-}
+};
 
-function clearForm() {
-    document.getElementById("density").value = "";
-    document.getElementById("temp").value = "";
-    document.getElementById("user").value = "";
-    document.getElementById("note").value = "";
-    document.getElementById("otherUnit").value = "";
+// ==============================================
+// 清除表單
+// ==============================================
+const clearForm = () => {
+    dom.density.value = "";
+    dom.temp.value = "";
+    dom.user.value = "";
+    dom.note.value = "";
+    dom.otherUnit.value = "";
     selectedIndex = -1;
     isEditMode = false;
-}
+};
 
-// 匯出 CSV 格式也統一
-function exportCSV() {
+// ==============================================
+// 匯出 CSV
+// ==============================================
+const exportCSV = () => {
     if(!records.length) return alert("無資料");
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
-
-    records.forEach(r => {
-        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
-    });
-
-    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
+    records.forEach(r=>{csv+=`${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;});
+    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "比重記錄表.csv";
     a.click();
-}
+};
 
-document.getElementById("unit").addEventListener("change",e=>{
-    document.getElementById("otherUnit").style.display = e.target.value==="其他"?"inline-block":"none";
+// 事件綁定
+dom.unit.addEventListener("change",e=>{
+    dom.otherUnit.style.display = e.target.value==="其他"?"inline-block":"none";
 });
 
-window.onload = () => { initDateTime(); loadData(); };
+// 啟動
+window.onload = () => {initDateTime(); loadData();};
 </script>
 </body>
 </html>

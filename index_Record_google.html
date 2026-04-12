@@ -118,25 +118,27 @@ const dom = {
 
 let records = [], selectedIndex = -1, isEditMode = false;
 
-// ===================== 強制綁定試算表欄位 =====================
-// 日期 = 試算表 A 欄
-function formatDate(date){
-    return String(date || "").trim().substring(0,10);
-}
-// 時間 = 試算表 B 欄（清除 .000Z 亂碼）
-function formatTime(time){
-    let t = String(time || "").trim();
-    t = t.replace(/.*T/, "").replace(/\..*/, "").replace(/Z/, "");
-    return t.substring(0,5);
+// 日期格式化：保留A栏数据的前10个字符（如0115-04-11）
+function formatDate(dateStr) {
+    return String(dateStr || "").trim().substring(0, 10);
 }
 
-// 狀態提示
+// 时间格式化：清除所有乱码，保留B栏的hh:mm
+function formatTime(timeStr) {
+    let t = String(timeStr || "").trim();
+    // 移除日期、T、毫秒、Z等所有多余内容
+    t = t.replace(/.*T/, "").replace(/\..*$/, "").replace(/Z/g, "");
+    // 只保留前5个字符（hh:mm）
+    return t.substring(0, 5);
+}
+
+// 状态提示
 function setStatus(msg, isError=false) {
     dom.status.textContent = msg;
     dom.status.className = isError ? "status error" : "status success";
 }
 
-// 下拉選單
+// 下拉菜单
 function fillSelect(el, start, end, pad, cur, step=1) {
     let html = "";
     for(let i=start; i<=end; i+=step){
@@ -146,7 +148,7 @@ function fillSelect(el, start, end, pad, cur, step=1) {
     el.innerHTML = html;
 }
 
-// 初始化日期時間
+// 初始化日期时间
 function initDateTime() {
     const now = new Date();
     const roc = now.getFullYear() - 1911;
@@ -163,22 +165,24 @@ function initDateTime() {
         `<option ${v==min ? "selected" : ""}>${v}</option>`).join("");
 }
 
-// ===================== 核心修正：強制讀取 A 欄 B 欄 =====================
+// 核心修复：正确读取对象格式的A栏date和B栏time
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
     try {
         const res = await fetch(API_URL);
         const raw = await res.json() || [];
 
+        // 正确读取对象格式的字段，不再用数组索引
         records = raw.map(item => ({
             ...item,
-            date: formatDate(item[0]),  // 🔥 強制 = 試算表 A 欄
-            time: formatTime(item[1])   // 🔥 強制 = 試算表 B 欄
+            date: formatDate(item.date), // 直接读取对象的date字段（A栏）
+            time: formatTime(item.time)  // 直接读取对象的time字段（B栏）
         }));
 
         renderTable();
-        setStatus(`✅ 已載入最新資料`);
+        setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
     } catch(e) {
+        console.error(e);
         setStatus("❌ 讀取失敗", true);
     }
 }
@@ -198,13 +202,17 @@ function renderTable() {
     `).join("");
 }
 
-// 選擇記錄
+// 选择记录
 function selectRecord(idx) {
     selectedIndex = idx;
     isEditMode = true;
     const item = records[idx];
-    const [y,mo,d] = item.date.split(/[-/]/);
-    const [h,i] = item.time.split(":");
+    // 兼容两种分隔符（/或-）的日期格式
+    const dateParts = item.date.split(/[-/]/);
+    const y = dateParts[0] || "";
+    const mo = dateParts[1] || "";
+    const d = dateParts[2] || "";
+    const [h, i] = item.time.split(":");
 
     dom.year.value = y;
     dom.month.value = mo;
@@ -218,7 +226,7 @@ function selectRecord(idx) {
     setStatus("已載入 → 修改後按確認送出");
 }
 
-// 儲存
+// 保存数据
 async function saveData() {
     const date = `${dom.year.value}/${dom.month.value}/${dom.day.value}`;
     const time = `${dom.hour.value}:${dom.minute.value}`;
@@ -241,38 +249,40 @@ async function saveData() {
             : { action:"add", data:record };
 
         await fetch(API_URL, {
-            method:"POST",
-            body:JSON.stringify(postData)
+            method: "POST",
+            body: JSON.stringify(postData)
         });
         
         await loadData();
         setStatus(isEditMode ? "✅ 修改同步完成" : "✅ 新增同步完成");
         clearForm();
     } catch(e) {
+        console.error(e);
         setStatus("❌ 同步失敗", true);
     }
 }
 
-// 刪除
+// 删除数据
 async function deleteData() {
     if(selectedIndex < 0) return alert("請點選資料");
     if(!confirm("確定刪除？將同步至 Google 試算表")) return;
 
     try {
         await fetch(API_URL, {
-            method:"POST",
-            body:JSON.stringify({ action:"delete", index:selectedIndex })
+            method: "POST",
+            body: JSON.stringify({ action:"delete", index:selectedIndex })
         });
         
         await loadData();
         clearForm();
         setStatus("✅ 刪除同步完成");
     } catch(e) {
+        console.error(e);
         setStatus("❌ 刪除失敗", true);
     }
 }
 
-// 清除表單
+// 清除表单
 function clearForm() {
     dom.density.value = "";
     dom.temp.value = "";
@@ -283,7 +293,7 @@ function clearForm() {
     isEditMode = false;
 }
 
-// 匯出 CSV
+// 导出CSV
 function exportCSV() {
     if(!records.length) return alert("無資料");
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
@@ -297,12 +307,12 @@ function exportCSV() {
     a.click();
 }
 
-// 事件
+// 事件监听
 dom.unit.addEventListener("change", function(e){
     dom.otherUnit.style.display = e.target.value === "其他" ? "inline-block" : "none";
 });
 
-// 啟動
+// 启动
 window.onload = function() {
     initDateTime();
     loadData();

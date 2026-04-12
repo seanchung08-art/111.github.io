@@ -93,26 +93,36 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyBve5dxH-STuA4fumdgUxAsW6N16Vq7_BaZYSn_YMZNW_2rOe4NVD3oUjD7Aa32yEsEg/exec";
 // ============================================================================
 
-// ========== 你要求加入的 ISO 日期轉換程式碼 ==========
-// 原始ISO日期字串
-let isoDate = "0115-04-11T15:54:00.000Z";
-
-// 轉成 0115/04/11
-let displayDate = new Date(isoDate).toLocaleDateString('zh-TW').replace(/\//g, '/');
-// =====================================================
-
-// 通用日期格式化函式（給整個網站使用）
-function formatDate(isoStr) {
-  try {
-    return new Date(isoStr).toLocaleDateString('zh-TW').replace(/\//g, '/');
-  } catch(e) {
-    return isoStr;
-  }
-}
-
 let records = [], selectedIndex = -1, isEditMode = false;
 const statusEl = document.getElementById("status");
 const tableBody = document.getElementById("tableBody");
+
+// ===================== 日期、時間格式化函式（你要的格式） =====================
+// 統一日期格式：0115/01/11（民國年/MM/DD）
+function formatDateStr(dateStr) {
+  if (!dateStr) return "";
+  // 試算表回傳任何日期格式 → 統一轉成 YYY/MM/DD
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+
+  const rocYear = d.getFullYear() - 1911;
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  return `${rocYear}/${month}/${day}`;
+}
+
+// 統一時間格式：14:50（HH:MM）
+function formatTimeStr(timeStr) {
+  if (!timeStr) return "";
+  const t = new Date(`2000-01-01T${timeStr}`);
+  if (isNaN(t.getTime())) return timeStr;
+
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+// ============================================================================
 
 function setStatus(msg, isError=false) {
     statusEl.textContent = msg;
@@ -143,12 +153,20 @@ function initDateTime() {
         `<option ${v==min ? 'selected' : ''}>${v}</option>`).join("");
 }
 
-// 從 Google 試算表 即時讀取最新 30 筆
+// 從 Google 試算表讀取後「強制格式化」日期、時間
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
     try {
         const res = await fetch(API_URL);
-        records = await res.json() || [];
+        let rawRecords = await res.json() || [];
+
+        // 🔥 關鍵：統一格式化日期 & 時間
+        records = rawRecords.map(item => ({
+          ...item,
+          date: formatDateStr(item.date),
+          time: formatTimeStr(item.time)
+        }));
+
         renderTable();
         setStatus(`✅ 已載入最新前 30 筆`);
     } catch (e) {
@@ -176,6 +194,7 @@ function selectRecord(idx) {
     const item = records[idx];
     const [y,mo,d] = item.date.split("/");
     const [h,i] = item.time.split(":");
+
     document.getElementById("year").value = y;
     document.getElementById("month").value = mo;
     document.getElementById("day").value = d;
@@ -185,6 +204,7 @@ function selectRecord(idx) {
     document.getElementById("temp").value = item.temp;
     document.getElementById("user").value = item.user;
     document.getElementById("note").value = item.note;
+
     setStatus("已載入 → 修改後按確認送出");
 }
 
@@ -202,6 +222,7 @@ async function saveData() {
     if(unit==="其他" && !other) return alert("請輸入自訂單元");
     if(!density||!temp||!user) return alert("請填寫完整");
     if(unit==="其他") unit=`其他(${other})`;
+
     const record = { date, time, unit, density, temp, user, note };
 
     try {
@@ -252,17 +273,15 @@ function clearForm() {
     isEditMode = false;
 }
 
-// 匯出 CSV
+// 匯出 CSV 格式也統一
 function exportCSV() {
     if(!records.length) return alert("無資料");
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
+
     records.forEach(r => {
-        const [y, mo, d] = r.date.split('/');
-        const fd = `${y}/${String(mo).padStart(2,0)}/${String(d).padStart(2,0)}`;
-        const [h, mi] = r.time.split(':');
-        const ft = `${String(h).padStart(2,0)}:${String(mi).padStart(2,0)}`;
-        csv += `${fd},${ft},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
+        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
     });
+
     const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

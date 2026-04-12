@@ -22,7 +22,7 @@
         tr:hover{background:#f0f8ff;cursor:pointer}
         .status{padding:8px;border-radius:5px;margin-bottom:10px}
         .success{background:#e8f5e9;color:#2e7d32}
-        .error{background:#ffebee;color:#c62832}
+        .error{background:#ffebee;color:#c62828}
         #otherUnit{display:none}
     </style>
 </head>
@@ -81,7 +81,13 @@
     <table>
         <thead>
             <tr>
-                <th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th>
+                <th>日期</th>
+                <th>時間</th>
+                <th>單元</th>
+                <th>比重</th>
+                <th>溫度</th>
+                <th>測量者</th>
+                <th>備註</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -113,25 +119,14 @@ const dom = {
 let records = [], selectedIndex = -1, isEditMode = false;
 
 // ==============================================
-// 🔥 核心修復：日期 100% 轉為正確民國年
+// 🔥 第一優先：純文字處理，絕不解析 Date
 // ==============================================
-function convertToROCDate(dateStr) {
-    if (!dateStr) return "";
-    // 直接處理試算表回傳的文字格式：YYYY/MM/DD 或 YYYY-MM-DD
-    const parts = dateStr.replace(/-/g, '/').split('/');
-    if (parts.length >= 3) {
-        const gregorianYear = parseInt(parts[0], 10);
-        const rocYear = gregorianYear - 1911;
-        return `${rocYear}/${parts[1]}/${parts[2]}`;
-    }
-    return dateStr;
+function formatDateAsText(dateStr) {
+    return String(dateStr || "").trim();
 }
 
-// ==============================================
-// 🔥 核心修復：時間 100% 使用試算表原始值
-// ==============================================
-function keepOriginalTime(timeStr) {
-    return timeStr || "00:00";
+function formatTimeAsText(timeStr) {
+    return String(timeStr || "").trim();
 }
 
 // 狀態提示
@@ -168,7 +163,7 @@ function initDateTime() {
 }
 
 // ==============================================
-// 載入資料（日期時間完全修正）
+// 載入資料：完全以「純文字」呈現
 // ==============================================
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
@@ -176,11 +171,11 @@ async function loadData() {
         const res = await fetch(API_URL);
         const raw = await res.json() || [];
 
-        // ✅ 修正：日期轉民國年 + 時間保留原始值
+        // ✅ 純文字優先，完全不解析日期格式
         records = raw.map(item => ({
             ...item,
-            date: convertToROCDate(item.date),
-            time: keepOriginalTime(item.time)
+            date: formatDateAsText(item.date),
+            time: formatTimeAsText(item.time)
         }));
 
         renderTable();

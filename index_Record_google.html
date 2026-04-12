@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>比重溫度記錄表（本地儲存）</title>
+    <style>
+        *{box-sizing:border-box;font-family:"Microsoft JhengHei",sans-serif}
+        body{margin:10px;background:#f5f5f5}
+        .container{max-width:1000px;margin:auto;background:white;padding:15px;border-radius:8px}
+        .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        label{font-weight:bold;min-width:fit-content;margin-right:5px}
+        select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
+        .btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
+        .btn-confirm{background:#4CAF50}
+        .btn-delete{background:#f44336}
+        .btn-download{background:#2196F3}
+        .btn-refresh{background:#ff9800}
+        table{width:100%;border-collapse:collapse;margin-top:15px}
+        th,td{border:1px solid #333;padding:8px;text-align:center}
+        th{background:#eaeaea}
+        tr:hover{background:#f0f8ff;cursor:pointer}
+        .status{padding:8px;border-radius:5px;margin-bottom:10px}
+        .success{background:#e8f5e9;color:#2e7d32}
+        .error{background:#ffebee;color:#c62828}
+        #otherUnit{display:none}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>比重 / 溫度記錄表（Google試算表即時同步）</h2>
+    <div id="status" class="status">啟動中...</div>
+
+    <div class="form-group">
+        <label>量測日期：</label>
+        <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
+    </div>
+    <div class="form-group">
+        <label>量測時間：</label>
+        <select id="hour"></select> : <select id="minute"></select>
+    </div>
+    <div class="form-group">
+        <label>單元名稱：</label>
+        <select id="unit">
+            <option value="原液坑一">原液坑一</option>
+            <option value="原液坑二">原液坑二</option>
+            <option value="VVCC#A">VVCC#A</option>
+            <option value="VVCC#B">VVCC#B</option>
+            <option value="VVCC#C">VVCC#C</option>
+            <option value="結晶罐#A">結晶罐#A</option>
+            <option value="結晶罐#B">結晶罐#B</option>
+            <option value="結晶罐#C">結晶罐#C</option>
+            <option value="濃縮液槽">濃縮液槽</option>
+            <option value="應急坑">應急坑</option>
+            <option value="其他">其他</option>
+        </select>
+        <input type="text" id="otherUnit" placeholder="自訂單元">
+    </div>
+    <div class="form-group">
+        <label>比重：</label>
+        <input type="number" step="0.001" id="density" placeholder="例：1.025">
+    </div>
+    <div class="form-group">
+        <label>溫度：</label>
+        <input type="number" id="temp" placeholder="例：28">
+    </div>
+    <div class="form-group">
+        <label>測量者：</label>
+        <input type="text" id="user" placeholder="姓名">
+    </div>
+    <div class="form-group">
+        <label>備註：</label>
+        <input type="text" id="note" placeholder="請輸入備註">
+    </div>
+
+    <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
+    <button class="btn btn-delete" onclick="deleteData()">刪除</button>
+    <button class="btn btn-download" onclick="exportCSV()">匯出CSV</button>
+    <button class="btn btn-refresh" onclick="loadData()">重新整理</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+// ===================== 請貼上你的 Google Apps Script 網址 =====================
+const API_URL = "https://script.google.com/macros/s/AKfycbyBve5dxH-STuA4fumdgUxAsW6N16Vq7_BaZYSn_YMZNW_2rOe4NVD3oUjD7Aa32yEsEg/exec";
+// ============================================================================
+
+let records = [], selectedIndex = -1, isEditMode = false;
+const statusEl = document.getElementById("status");
+const tableBody = document.getElementById("tableBody");
+
+function setStatus(msg, isError=false) {
+    statusEl.textContent = msg;
+    statusEl.className = isError ? "status error" : "status success";
+}
+
+function fillSelect(el, start, end, pad, cur, step=1) {
+    el.innerHTML = "";
+    for(let i=start; i<=end; i+=step) {
+        const v = pad ? String(i).padStart(2,"0") : i;
+        el.innerHTML += `<option ${i==cur ? 'selected' : ''}>${v}</option>`;
+    }
+}
+
+function initDateTime() {
+    const now = new Date();
+    const roc = now.getFullYear() - 1911;
+    const m = now.getMonth()+1;
+    const d = now.getDate();
+    const h = now.getHours();
+    const min = Math.floor(now.getMinutes()/10)*10;
+
+    fillSelect(document.getElementById("year"), roc-3, roc+1, false, roc);
+    fillSelect(document.getElementById("month"), 1,12,true,m);
+    fillSelect(document.getElementById("day"),1,31,true,d);
+    fillSelect(document.getElementById("hour"),0,23,true,h);
+    document.getElementById("minute").innerHTML = ["00","10","20","30","40","50"].map(v=>
+        `<option ${v==min ? 'selected' : ''}>${v}</option>`).join("");
+}
+
+// 從 Google 試算表 即時讀取最新 30 筆
+async function loadData() {
+    setStatus("讀取 Google 試算表中...");
+    try {
+        const res = await fetch(API_URL);
+        records = await res.json() || [];
+        renderTable();
+        setStatus(`✅ 已載入最新前 30 筆`);
+    } catch (e) {
+        setStatus("❌ 讀取失敗", true);
+    }
+}
+
+function renderTable() {
+    tableBody.innerHTML = records.map((item,i) => `
+        <tr onclick="selectRecord(${i})">
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.unit}</td>
+            <td>${item.density}</td>
+            <td>${item.temp}</td>
+            <td>${item.user}</td>
+            <td>${item.note}</td>
+        </tr>
+    `).join("");
+}
+
+function selectRecord(idx) {
+    selectedIndex = idx;
+    isEditMode = true;
+    const item = records[idx];
+    const [y,mo,d] = item.date.split("/");
+    const [h,i] = item.time.split(":");
+    document.getElementById("year").value = y;
+    document.getElementById("month").value = mo;
+    document.getElementById("day").value = d;
+    document.getElementById("hour").value = h;
+    document.getElementById("minute").value = i;
+    document.getElementById("density").value = item.density;
+    document.getElementById("temp").value = item.temp;
+    document.getElementById("user").value = item.user;
+    document.getElementById("note").value = item.note;
+    setStatus("已載入 → 修改後按確認送出");
+}
+
+// 新增 / 修改 → 同步 Google
+async function saveData() {
+    const date = `${document.getElementById("year").value}/${document.getElementById("month").value}/${document.getElementById("day").value}`;
+    const time = `${document.getElementById("hour").value}:${document.getElementById("minute").value}`;
+    let unit = document.getElementById("unit").value;
+    const other = document.getElementById("otherUnit").value.trim();
+    const density = document.getElementById("density").value.trim();
+    const temp = document.getElementById("temp").value.trim();
+    const user = document.getElementById("user").value.trim();
+    const note = document.getElementById("note").value.trim();
+
+    if(unit==="其他" && !other) return alert("請輸入自訂單元");
+    if(!density||!temp||!user) return alert("請填寫完整");
+    if(unit==="其他") unit=`其他(${other})`;
+    const record = { date, time, unit, density, temp, user, note };
+
+    try {
+        if(isEditMode) {
+            // 修改
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action:"update", index:selectedIndex, data:record })
+            });
+        } else {
+            // 新增
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action:"add", data:record })
+            });
+        }
+        await loadData();
+        setStatus(isEditMode ? "✅ 修改同步完成" : "✅ 新增同步完成");
+        clearForm();
+    } catch (e) {
+        setStatus("❌ 同步失敗", true);
+    }
+}
+
+// 刪除 → 同步 Google
+async function deleteData() {
+    if(selectedIndex < 0) return alert("請點選資料");
+    if(!confirm("確定刪除？將同步至 Google 試算表")) return;
+
+    try {
+        await fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify({ action:"delete", index:selectedIndex })
+        });
+        await loadData();
+        clearForm();
+        setStatus("✅ 刪除同步完成");
+    } catch (e) {
+        setStatus("❌ 刪除失敗", true);
+    }
+}
+
+function clearForm() {
+    document.getElementById("density").value = "";
+    document.getElementById("temp").value = "";
+    document.getElementById("user").value = "";
+    document.getElementById("note").value = "";
+    document.getElementById("otherUnit").value = "";
+    selectedIndex = -1;
+    isEditMode = false;
+}
+
+// 匯出 CSV（與你原版完全相同）
+function exportCSV() {
+    if(!records.length) return alert("無資料");
+    let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
+    records.forEach(r => {
+        const [y, mo, d] = r.date.split('/');
+        const fd = `${y}/${String(mo).padStart(2,0)}/${String(d).padStart(2,0)}`;
+        const [h, mi] = r.time.split(':');
+        const ft = `${String(h).padStart(2,0)}:${String(mi).padStart(2,0)}`;
+        csv += `${fd},${ft},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
+    });
+    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "比重記錄表.csv";
+    a.click();
+}
+
+document.getElementById("unit").addEventListener("change",e=>{
+    document.getElementById("otherUnit").style.display = e.target.value==="其他"?"inline-block":"none";
+});
+
+window.onload = () => { initDateTime(); loadData(); };
+</script>
+</body>
+</html>

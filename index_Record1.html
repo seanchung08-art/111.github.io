@@ -217,12 +217,28 @@ function clearForm() {
     isEditMode = false;
 }
 
+// ✅ 修正：強制匯出標準格式日期、時間
 function exportCSV() {
     if(!records.length) return alert("無資料");
+    
+    // CSV 表頭
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
+    
+    // 逐筆匯出，確保格式：日期 115/04/12、時間 07:30
     records.forEach(r => {
-        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;
+        // 確保日期是 民國年/兩位數月/兩位數日
+        const [y, mo, d] = r.date.split('/');
+        const formatDate = `${y}/${String(mo).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+        
+        // 確保時間是 兩位數時:兩位數分
+        const [h, mi] = r.time.split(':');
+        const formatTime = `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+
+        // 組合 CSV 行
+        csv += `${formatDate},${formatTime},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
     });
+
+    // 下載檔案
     const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], {type:"text/csv"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

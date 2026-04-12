@@ -11,7 +11,7 @@
         .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         label{font-weight:bold;min-width:fit-content;margin-right:5px}
         select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
-        .btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
+        .btn{padding:8px14px;margin:5px3px;border:none;border-radius:5px;color:white;cursor:pointer}
         .btn-confirm{background:#4CAF50}
         .btn-delete{background:#f44336}
         .btn-download{background:#2196F3}
@@ -119,22 +119,21 @@ const dom = {
 let records = [], selectedIndex = -1, isEditMode = false;
 
 // ==============================================
-// 日期：保留前10個字符
+// 日期：取自試算表 A 欄
 // ==============================================
 function formatDateAsText(dateStr) {
     return String(dateStr || "").trim().substring(0, 10);
 }
 
 // ==============================================
-// 🔥 最強時間修正：徹底移除 .000Z，只保留 hh:mm
+// 🔥 時間：強制取自試算表 B 欄，清除所有亂碼
 // ==============================================
 function formatTimeAsText(timeStr) {
     let t = String(timeStr || "").trim();
-    // 移除所有 ISO 日期、Z、小數點
+    // 永久移除 .000Z / 日期 / 多餘格式
     t = t.replace(/\d{4}-\d{2}-\d{2}T/, "")
          .replace(/\.\d+Z/, "")
          .replace(/Z/g, "");
-    // 只保留 時間部分 hh:mm
     return t.substring(0, 5);
 }
 
@@ -172,7 +171,7 @@ function initDateTime() {
 }
 
 // ==============================================
-// 載入資料
+// 🔥 強制對應：日期=A欄、時間=B欄
 // ==============================================
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
@@ -180,10 +179,11 @@ async function loadData() {
         const res = await fetch(API_URL);
         const raw = await res.json() || [];
 
+        // 強制綁定欄位：date=A欄、time=B欄
         records = raw.map(item => ({
             ...item,
-            date: formatDateAsText(item.date),
-            time: formatTimeAsText(item.time)
+            date: formatDateAsText(item.date),   // 試算表 A 欄
+            time: formatTimeAsText(item.time)     // 試算表 B 欄
         }));
 
         renderTable();

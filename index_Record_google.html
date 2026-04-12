@@ -119,21 +119,35 @@ const dom = {
 let records = [], selectedIndex = -1, isEditMode = false;
 
 // ==============================================
-// 🔥 修正日期格式：取前10字 → 0115-04-11
+// 🔥 日期：固定取前10字，確保顯示 0115-04-11
 // ==============================================
 function formatDateAsText(dateStr) {
     const raw = String(dateStr || "").trim();
-    // 取前10個字元，例如 "0115-04-11T15:54:00.000Z" → "0115-04-11"
     return raw.substring(0, 10);
 }
 
 // ==============================================
-// 🔥 修正時間格式：取最後5字 → 12:10
+// 🔥 時間：強制解析出 HH:mm，避免顯示 .000Z
 // ==============================================
 function formatTimeAsText(timeStr) {
     const raw = String(timeStr || "").trim();
-    // 取最後5個字元，例如 "1899-12-30T12:10" → "12:10"
-    return raw.slice(-5);
+    // 優先找「T」之後的時間部分（ISO格式）
+    if (raw.includes("T")) {
+        const parts = raw.split("T");
+        if (parts.length >= 2) {
+            const timePart = parts[1];
+            // 從時間部分取前5字（HH:mm）
+            if (timePart.length >= 5) {
+                return timePart.substring(0, 5);
+            }
+        }
+    }
+    // 若不是ISO格式，直接取最後5字（原本的邏輯）
+    if (raw.length >= 5) {
+        return raw.slice(-5);
+    }
+    // 都不匹配就回傳空值
+    return "";
 }
 
 // 狀態提示
@@ -170,7 +184,7 @@ function initDateTime() {
 }
 
 // ==============================================
-// 載入資料：套用新的格式化函數
+// 載入資料：套用新的格式化邏輯
 // ==============================================
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
@@ -206,17 +220,17 @@ function renderTable() {
     `).join("");
 }
 
-// 選擇記錄（修改為支援 "0115-04-11" 格式解析）
+// 選擇記錄：支援 0115-04-11 格式解析
 function selectRecord(idx) {
     selectedIndex = idx;
     isEditMode = true;
     const item = records[idx];
-    // 日期格式："0115-04-11" → 分割成 [0115, 04, 11]
+    // 解析日期
     const dateParts = item.date.split("-");
-    const y = dateParts[0] ? dateParts[0] : "";
-    const mo = dateParts[1] ? dateParts[1] : "";
-    const d = dateParts[2] ? dateParts[2] : "";
-    // 時間格式："12:10" → 分割成 [12, 10]
+    const y = dateParts[0] || "";
+    const mo = dateParts[1] || "";
+    const d = dateParts[2] || "";
+    // 解析時間
     const [h, i] = item.time.split(":");
 
     dom.year.value = y;
@@ -232,7 +246,7 @@ function selectRecord(idx) {
     setStatus("已載入 → 修改後按確認送出");
 }
 
-// 儲存（維持原格式：yyyy/mm/dd 與 hh:mm）
+// 儲存：維持原格式，不影響試算表
 async function saveData() {
     const date = `${dom.year.value}/${dom.month.value}/${dom.day.value}`;
     const time = `${dom.hour.value}:${dom.minute.value}`;
@@ -297,7 +311,7 @@ function clearForm() {
     isEditMode = false;
 }
 
-// 匯出 CSV（維持原格式）
+// 匯出 CSV：維持顯示格式
 function exportCSV() {
     if(!records.length) return alert("無資料");
     let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";

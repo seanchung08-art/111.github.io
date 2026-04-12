@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>比重溫度記錄表（Google試算表即時同步）</title>
+    <title>比重溫度記錄表</title>
     <style>
-        *{box-sizing:border-box;font-family:"Microsoft JhengHei",sans-serif}
+        *{box-sizing:border-box;font-family:Microsoft JhengHei}
         body{margin:10px;background:#f5f5f5}
         .container{max-width:1000px;margin:auto;background:white;padding:15px;border-radius:8px}
         .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-        label{font-weight:bold;min-width:fit-content;margin-right:5px}
+        label{font-weight:bold}
         select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
         .btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
         .btn-confirm{background:#4CAF50}
@@ -19,28 +19,25 @@
         table{width:100%;border-collapse:collapse;margin-top:15px}
         th,td{border:1px solid #333;padding:8px;text-align:center}
         th{background:#eaeaea}
-        tr:hover{background:#f0f8ff;cursor:pointer}
-        .status{padding:8px;border-radius:5px;margin-bottom:10px}
-        .success{background:#e8f5e9;color:#2e7d32}
-        .error{background:#ffebee;color:#c62828}
-        #otherUnit{display:none}
+        tr:hover{background:#f0f8ff}
+        .status{padding:8px;border-radius:5px}
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>比重 / 溫度記錄表（Google試算表即時同步）</h2>
+    <h2>比重溫度記錄表</h2>
     <div id="status" class="status">啟動中...</div>
 
     <div class="form-group">
         <label>量測日期：</label>
-        <select id="year"></select> / <select id="month"></select> / <select id="day"></select>
+        <select id="year"></select>/<select id="month"></select>/<select id="day"></select>
     </div>
     <div class="form-group">
         <label>量測時間：</label>
-        <select id="hour"></select> : <select id="minute"></select>
+        <select id="hour"></select>:<select id="minute"></select>
     </div>
     <div class="form-group">
-        <label>單元名稱：</label>
+        <label>單元：</label>
         <select id="unit">
             <option value="原液坑一">原液坑一</option>
             <option value="原液坑二">原液坑二</option>
@@ -57,20 +54,16 @@
         <input type="text" id="otherUnit" placeholder="自訂單元">
     </div>
     <div class="form-group">
-        <label>比重：</label>
-        <input type="number" step="0.001" id="density" placeholder="例：1.025">
+        <label>比重：</label><input type="number" step="0.001" id="density">
     </div>
     <div class="form-group">
-        <label>溫度：</label>
-        <input type="number" id="temp" placeholder="例：28">
+        <label>溫度：</label><input type="number" id="temp">
     </div>
     <div class="form-group">
-        <label>測量者：</label>
-        <input type="text" id="user" placeholder="姓名">
+        <label>測量者：</label><input type="text" id="user">
     </div>
     <div class="form-group">
-        <label>備註：</label>
-        <input type="text" id="note" placeholder="請輸入備註">
+        <label>備註：</label><input type="text" id="note">
     </div>
 
     <button class="btn btn-confirm" onclick="saveData()">確認送出</button>
@@ -80,243 +73,140 @@
 
     <table>
         <thead>
-            <tr>
-                <th>日期</th>
-                <th>時間</th>
-                <th>單元</th>
-                <th>比重</th>
-                <th>溫度</th>
-                <th>測量者</th>
-                <th>備註</th>
-            </tr>
+            <tr><th>日期</th><th>時間</th><th>單元</th><th>比重</th><th>溫度</th><th>測量者</th><th>備註</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
     </table>
 </div>
 
 <script>
-// ===================== 請貼上你的 Google Apps Script 網址 =====================
-const API_URL = "https://script.google.com/macros/s/AKfycbyBve5dxH-STuA4fumdgUxAsW6N16Vq7_BaZYSn_YMZNW_2rOe4NVD3oUjD7Aa32yEsEg/exec";
-// ============================================================================
+const API_URL = "https://script.google.com/macros/s/AKfycbzPobslXvm10XOniATHsJy_AGlWrqfhD3ikFvHrdgG7YyACAedAGGW94ny5Mgi0o70Uww/exec";
 
-// DOM 快取
 const dom = {
-    year: document.getElementById("year"),
-    month: document.getElementById("month"),
-    day: document.getElementById("day"),
-    hour: document.getElementById("hour"),
-    minute: document.getElementById("minute"),
-    unit: document.getElementById("unit"),
-    otherUnit: document.getElementById("otherUnit"),
-    density: document.getElementById("density"),
-    temp: document.getElementById("temp"),
-    user: document.getElementById("user"),
-    note: document.getElementById("note"),
-    status: document.getElementById("status"),
-    tableBody: document.getElementById("tableBody")
+    year:document.getElementById("year"),month:document.getElementById("month"),day:document.getElementById("day"),
+    hour:document.getElementById("hour"),minute:document.getElementById("minute"),
+    unit:document.getElementById("unit"),otherUnit:document.getElementById("otherUnit"),
+    density:document.getElementById("density"),temp:document.getElementById("temp"),
+    user:document.getElementById("user"),note:document.getElementById("note"),
+    status:document.getElementById("status"),tableBody:document.getElementById("tableBody")
 };
 
-let records = [], selectedIndex = -1, isEditMode = false;
+let records=[],selectedIndex=-1,isEditMode=false;
 
-// 日期格式化：保留A栏数据的前10个字符（如0115-04-11）
-function formatDate(dateStr) {
-    return String(dateStr || "").trim().substring(0, 10);
+// 🔥 完全不加工，直接顯示試算表的文字
+function formatDate(d){ return d || ""; }
+function formatTime(t){ return t || ""; }
+
+function setStatus(msg,isError=false){
+    dom.status.textContent=msg;
+    dom.status.className=isError?"status error":"status success";
 }
 
-// 时间格式化：清除所有乱码，保留B栏的hh:mm
-function formatTime(timeStr) {
-    let t = String(timeStr || "").trim();
-    // 移除日期、T、毫秒、Z等所有多余内容
-    t = t.replace(/.*T/, "").replace(/\..*$/, "").replace(/Z/g, "");
-    // 只保留前5个字符（hh:mm）
-    return t.substring(0, 5);
-}
-
-// 状态提示
-function setStatus(msg, isError=false) {
-    dom.status.textContent = msg;
-    dom.status.className = isError ? "status error" : "status success";
-}
-
-// 下拉菜单
-function fillSelect(el, start, end, pad, cur, step=1) {
-    let html = "";
-    for(let i=start; i<=end; i+=step){
-        const v = pad ? String(i).padStart(2,"0") : i;
-        html += `<option ${i==cur ? "selected" : ""}>${v}</option>`;
+function fillSelect(el,start,end,pad,cur){
+    let h="";
+    for(let i=start;i<=end;i++){
+        const v=pad?String(i).padStart(2,"0"):i;
+        h+=`<option ${i==cur?"selected":""}>${v}</option>`;
     }
-    el.innerHTML = html;
+    el.innerHTML=h;
 }
 
-// 初始化日期时间
-function initDateTime() {
-    const now = new Date();
-    const roc = now.getFullYear() - 1911;
-    const m = now.getMonth()+1;
-    const d = now.getDate();
-    const h = now.getHours();
-    const min = Math.floor(now.getMinutes()/10)*10;
-
-    fillSelect(dom.year, roc-3, roc+1, false, roc);
+function initDateTime(){
+    const now=new Date();
+    const roc=now.getFullYear()-1911;
+    const m=now.getMonth()+1;
+    const d=now.getDate();
+    const h=now.getHours();
+    const min=Math.floor(now.getMinutes()/10)*10;
+    fillSelect(dom.year,roc-3,roc+1,false,roc);
     fillSelect(dom.month,1,12,true,m);
     fillSelect(dom.day,1,31,true,d);
     fillSelect(dom.hour,0,23,true,h);
-    dom.minute.innerHTML = ["00","10","20","30","40","50"].map(v=>
-        `<option ${v==min ? "selected" : ""}>${v}</option>`).join("");
+    dom.minute.innerHTML=["00","10","20","30","40","50"].map(v=>`<option ${v==min?"selected":""}>${v}</option>`).join("");
 }
 
-// 核心修复：正确读取对象格式的A栏date和B栏time
-async function loadData() {
-    setStatus("讀取 Google 試算表中...");
-    try {
-        const res = await fetch(API_URL);
-        const raw = await res.json() || [];
-
-        // 正确读取对象格式的字段，不再用数组索引
-        records = raw.map(item => ({
-            ...item,
-            date: formatDate(item.date), // 直接读取对象的date字段（A栏）
-            time: formatTime(item.time)  // 直接读取对象的time字段（B栏）
-        }));
-
+async function loadData(){
+    setStatus("讀取試算表中...");
+    try{
+        const r=await fetch(API_URL);
+        const raw=await r.json();
+        records=raw.map(i=>({...i,date:formatDate(i.date),time:formatTime(i.time)}));
         renderTable();
-        setStatus(`✅ 已載入最新 ${records.length} 筆資料`);
-    } catch(e) {
-        console.error(e);
-        setStatus("❌ 讀取失敗", true);
-    }
+        setStatus(`✅ 已載入 ${records.length} 筆`);
+    }catch(e){setStatus("❌ 讀取失敗",true);}
 }
 
-// 表格渲染
-function renderTable() {
-    dom.tableBody.innerHTML = records.map((item,i) => `
-        <tr onclick="selectRecord(${i})">
-            <td>${item.date}</td>
-            <td>${item.time}</td>
-            <td>${item.unit}</td>
-            <td>${item.density}</td>
-            <td>${item.temp}</td>
-            <td>${item.user}</td>
-            <td>${item.note}</td>
-        </tr>
-    `).join("");
+function renderTable(){
+    dom.tableBody.innerHTML=records.map((i,idx)=>`
+    <tr onclick="selectRecord(${idx})">
+        <td>${i.date}</td><td>${i.time}</td><td>${i.unit}</td><td>${i.density}</td><td>${i.temp}</td><td>${i.user}</td><td>${i.note}</td>
+    </tr>`).join("");
 }
 
-// 选择记录
-function selectRecord(idx) {
-    selectedIndex = idx;
-    isEditMode = true;
-    const item = records[idx];
-    // 兼容两种分隔符（/或-）的日期格式
-    const dateParts = item.date.split(/[-/]/);
-    const y = dateParts[0] || "";
-    const mo = dateParts[1] || "";
-    const d = dateParts[2] || "";
-    const [h, i] = item.time.split(":");
-
-    dom.year.value = y;
-    dom.month.value = mo;
-    dom.day.value = d;
-    dom.hour.value = h;
-    dom.minute.value = i;
-    dom.density.value = item.density;
-    dom.temp.value = item.temp;
-    dom.user.value = item.user;
-    dom.note.value = item.note;
-    setStatus("已載入 → 修改後按確認送出");
+function selectRecord(idx){
+    selectedIndex=idx;isEditMode=true;
+    const i=records[idx];
+    const dp=i.date.split(/[-/]/);
+    const tp=i.time.split(":");
+    dom.year.value=dp[0]||"";dom.month.value=dp[1]||"";dom.day.value=dp[2]||"";
+    dom.hour.value=tp[0]||"";dom.minute.value=tp[1]||"";
+    dom.density.value=i.density||"";dom.temp.value=i.temp||"";dom.user.value=i.user||"";dom.note.value=i.note||"";
+    setStatus("已載入資料");
 }
 
-// 保存数据
-async function saveData() {
-    const date = `${dom.year.value}/${dom.month.value}/${dom.day.value}`;
-    const time = `${dom.hour.value}:${dom.minute.value}`;
-    let unit = dom.unit.value;
-    const other = dom.otherUnit.value.trim();
-    const density = dom.density.value.trim();
-    const temp = dom.temp.value.trim();
-    const user = dom.user.value.trim();
-    const note = dom.note.value.trim();
+async function saveData(){
+    const date=`${dom.year.value}/${dom.month.value}/${dom.day.value}`;
+    const time=`${dom.hour.value}:${dom.minute.value}`;
+    let unit=dom.unit.value;
+    const other=dom.otherUnit.value.trim();
+    const density=dom.density.value.trim();
+    const temp=dom.temp.value.trim();
+    const user=dom.user.value.trim();
+    const note=dom.note.value.trim();
 
-    if(unit === "其他" && !other) return alert("請輸入自訂單元");
-    if(!density || !temp || !user) return alert("請填寫完整");
-    if(unit === "其他") unit = `其他(${other})`;
+    if(unit=="其他"&&!other)return alert("請輸入自訂單元");
+    if(!density||!temp||!user)return alert("請填寫完整");
+    if(unit=="其他")unit=`其他(${other})`;
     
-    const record = { date, time, unit, density, temp, user, note };
-
-    try {
-        let postData = isEditMode 
-            ? { action:"update", index:selectedIndex, data:record }
-            : { action:"add", data:record };
-
-        await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify(postData)
-        });
-        
-        await loadData();
-        setStatus(isEditMode ? "✅ 修改同步完成" : "✅ 新增同步完成");
-        clearForm();
-    } catch(e) {
-        console.error(e);
-        setStatus("❌ 同步失敗", true);
-    }
+    const data={date,time,unit,density,temp,user,note};
+    try{
+        const body=isEditMode?{action:"update",index:selectedIndex,data}:{action:"add",data};
+        await fetch(API_URL,{method:"POST",body:JSON.stringify(body)});
+        await loadData();clearForm();
+        setStatus(isEditMode?"✅ 修改完成":"✅ 新增完成");
+    }catch(e){setStatus("❌ 儲存失敗",true);}
 }
 
-// 删除数据
-async function deleteData() {
-    if(selectedIndex < 0) return alert("請點選資料");
-    if(!confirm("確定刪除？將同步至 Google 試算表")) return;
-
-    try {
-        await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({ action:"delete", index:selectedIndex })
-        });
-        
-        await loadData();
-        clearForm();
-        setStatus("✅ 刪除同步完成");
-    } catch(e) {
-        console.error(e);
-        setStatus("❌ 刪除失敗", true);
-    }
+async function deleteData(){
+    if(selectedIndex<0)return alert("請點選資料");
+    if(!confirm("確定刪除？"))return;
+    try{
+        await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"delete",index:selectedIndex})});
+        await loadData();clearForm();setStatus("✅ 刪除完成");
+    }catch(e){setStatus("❌ 刪除失敗",true);}
 }
 
-// 清除表单
-function clearForm() {
-    dom.density.value = "";
-    dom.temp.value = "";
-    dom.user.value = "";
-    dom.note.value = "";
-    dom.otherUnit.value = "";
-    selectedIndex = -1;
-    isEditMode = false;
+function clearForm(){
+    dom.density.value="";dom.temp.value="";dom.user.value="";dom.note.value="";
+    selectedIndex=-1;isEditMode=false;
 }
 
-// 导出CSV
-function exportCSV() {
-    if(!records.length) return alert("無資料");
-    let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
-    records.forEach(r => {
-        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
-    });
-    const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], { type:"text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "比重記錄表.csv";
+function exportCSV(){
+    if(!records.length)return alert("無資料");
+    let csv="日期,時間,單元,比重,溫度,測量者,備註\n";
+    records.forEach(r=>{csv+=`${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;});
+    const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="比重記錄表.csv";
     a.click();
 }
 
-// 事件监听
-dom.unit.addEventListener("change", function(e){
-    dom.otherUnit.style.display = e.target.value === "其他" ? "inline-block" : "none";
+dom.unit.addEventListener("change",e=>{
+    dom.otherUnit.style.display=e.target.value=="其他"?"inline-block":"none";
 });
 
-// 启动
-window.onload = function() {
-    initDateTime();
-    loadData();
-};
+window.onload=()=>{initDateTime();loadData();};
 </script>
 </body>
 </html>

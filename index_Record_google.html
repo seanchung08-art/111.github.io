@@ -80,133 +80,194 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzPobslXvm10XOniATHsJy_AGlWrqfhD3ikFvHrdgG7YyACAedAGGW94ny5Mgi0o70Uww/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwvW3ohcJjVJteiqu6BSz3puqEVqnhFlU11mnA7FIRY7D2L1kGgzHuRJTgI3Ny4oa0SZw/exec";
 
+// 快取 DOM，只查詢一次（速度優化核心）
 const dom = {
-    year:document.getElementById("year"),month:document.getElementById("month"),day:document.getElementById("day"),
-    hour:document.getElementById("hour"),minute:document.getElementById("minute"),
-    unit:document.getElementById("unit"),otherUnit:document.getElementById("otherUnit"),
-    density:document.getElementById("density"),temp:document.getElementById("temp"),
-    user:document.getElementById("user"),note:document.getElementById("note"),
-    status:document.getElementById("status"),tableBody:document.getElementById("tableBody")
+    year: document.getElementById("year"),
+    month: document.getElementById("month"),
+    day: document.getElementById("day"),
+    hour: document.getElementById("hour"),
+    minute: document.getElementById("minute"),
+    unit: document.getElementById("unit"),
+    otherUnit: document.getElementById("otherUnit"),
+    density: document.getElementById("density"),
+    temp: document.getElementById("temp"),
+    user: document.getElementById("user"),
+    note: document.getElementById("note"),
+    status: document.getElementById("status"),
+    tableBody: document.getElementById("tableBody")
 };
 
-let records=[],selectedIndex=-1,isEditMode=false;
+let records = [], selectedIndex = -1, isEditMode = false;
 
-// 🔥 完全不加工，直接顯示試算表的文字
-function formatDate(d){ return d || ""; }
-function formatTime(t){ return t || ""; }
+// 直接顯示試算表文字（不處理，速度最快）
+function formatText(v) { return v || ""; }
 
-function setStatus(msg,isError=false){
-    dom.status.textContent=msg;
-    dom.status.className=isError?"status error":"status success";
+// 狀態提示
+function setStatus(msg, isError = false) {
+    dom.status.textContent = msg;
+    dom.status.className = isError ? "status error" : "status success";
 }
 
-function fillSelect(el,start,end,pad,cur){
-    let h="";
-    for(let i=start;i<=end;i++){
-        const v=pad?String(i).padStart(2,"0"):i;
-        h+=`<option ${i==cur?"selected":""}>${v}</option>`;
+// 選單產生（優化速度）
+function fillSelect(el, start, end, pad, cur) {
+    let html = "";
+    for (let i = start; i <= end; i++) {
+        const val = pad ? String(i).padStart(2, "0") : i;
+        html += `<option ${i == cur ? "selected" : ""}>${val}</option>`;
     }
-    el.innerHTML=h;
+    el.innerHTML = html;
 }
 
-function initDateTime(){
-    const now=new Date();
-    const roc=now.getFullYear()-1911;
-    const m=now.getMonth()+1;
-    const d=now.getDate();
-    const h=now.getHours();
-    const min=Math.floor(now.getMinutes()/10)*10;
-    fillSelect(dom.year,roc-3,roc+1,false,roc);
-    fillSelect(dom.month,1,12,true,m);
-    fillSelect(dom.day,1,31,true,d);
-    fillSelect(dom.hour,0,23,true,h);
-    dom.minute.innerHTML=["00","10","20","30","40","50"].map(v=>`<option ${v==min?"selected":""}>${v}</option>`).join("");
+// 初始化日期時間
+function initDateTime() {
+    const now = new Date();
+    const roc = now.getFullYear() - 1911;
+    const m = now.getMonth() + 1;
+    const d = now.getDate();
+    const h = now.getHours();
+    const min = Math.floor(now.getMinutes() / 10) * 10;
+
+    fillSelect(dom.year, roc - 3, roc + 1, false, roc);
+    fillSelect(dom.month, 1, 12, true, m);
+    fillSelect(dom.day, 1, 31, true, d);
+    fillSelect(dom.hour, 0, 23, true, h);
+    dom.minute.innerHTML = ["00","10","20","30","40","50"].map(v =>
+        `<option ${v == min ? "selected" : ""}>${v}</option>`
+    ).join("");
 }
 
-async function loadData(){
-    setStatus("讀取試算表中...");
-    try{
-        const r=await fetch(API_URL);
-        const raw=await r.json();
-        records=raw.map(i=>({...i,date:formatDate(i.date),time:formatTime(i.time)}));
+// 讀取資料（優化請求 + 只取20筆）
+async function loadData() {
+    setStatus("讀取中...");
+    try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        const raw = await res.json();
+        records = raw.map(item => ({
+            ...item,
+            date: formatText(item.date),
+            time: formatText(item.time)
+        }));
         renderTable();
-        setStatus(`✅ 已載入 ${records.length} 筆`);
-    }catch(e){setStatus("❌ 讀取失敗",true);}
+        setStatus(`✅ 已載入最新 20 筆`);
+    } catch (e) {
+        setStatus("❌ 讀取失敗", true);
+    }
 }
 
-function renderTable(){
-    dom.tableBody.innerHTML=records.map((i,idx)=>`
+// 表格渲染（極速渲染）
+function renderTable() {
+    dom.tableBody.innerHTML = records.map((item, idx) => `
     <tr onclick="selectRecord(${idx})">
-        <td>${i.date}</td><td>${i.time}</td><td>${i.unit}</td><td>${i.density}</td><td>${i.temp}</td><td>${i.user}</td><td>${i.note}</td>
+        <td>${item.date}</td>
+        <td>${item.time}</td>
+        <td>${item.unit}</td>
+        <td>${item.density}</td>
+        <td>${item.temp}</td>
+        <td>${item.user}</td>
+        <td>${item.note}</td>
     </tr>`).join("");
 }
 
-function selectRecord(idx){
-    selectedIndex=idx;isEditMode=true;
-    const i=records[idx];
-    const dp=i.date.split(/[-/]/);
-    const tp=i.time.split(":");
-    dom.year.value=dp[0]||"";dom.month.value=dp[1]||"";dom.day.value=dp[2]||"";
-    dom.hour.value=tp[0]||"";dom.minute.value=tp[1]||"";
-    dom.density.value=i.density||"";dom.temp.value=i.temp||"";dom.user.value=i.user||"";dom.note.value=i.note||"";
+// 選擇記錄
+function selectRecord(idx) {
+    selectedIndex = idx;
+    isEditMode = true;
+    const item = records[idx];
+    const dp = item.date.split(/[-/]/) || [];
+    const tp = item.time.split(":") || [];
+
+    dom.year.value = dp[0] || "";
+    dom.month.value = dp[1] || "";
+    dom.day.value = dp[2] || "";
+    dom.hour.value = tp[0] || "";
+    dom.minute.value = tp[1] || "";
+
+    dom.density.value = item.density || "";
+    dom.temp.value = item.temp || "";
+    dom.user.value = item.user || "";
+    dom.note.value = item.note || "";
     setStatus("已載入資料");
 }
 
-async function saveData(){
-    const date=`${dom.year.value}/${dom.month.value}/${dom.day.value}`;
-    const time=`${dom.hour.value}:${dom.minute.value}`;
-    let unit=dom.unit.value;
-    const other=dom.otherUnit.value.trim();
-    const density=dom.density.value.trim();
-    const temp=dom.temp.value.trim();
-    const user=dom.user.value.trim();
-    const note=dom.note.value.trim();
+// 儲存
+async function saveData() {
+    const date = `${dom.year.value}/${dom.month.value}/${dom.day.value}`;
+    const time = `${dom.hour.value}:${dom.minute.value}`;
+    let unit = dom.unit.value;
+    const other = dom.otherUnit.value.trim();
+    const density = dom.density.value.trim();
+    const temp = dom.temp.value.trim();
+    const user = dom.user.value.trim();
+    const note = dom.note.value.trim();
 
-    if(unit=="其他"&&!other)return alert("請輸入自訂單元");
-    if(!density||!temp||!user)return alert("請填寫完整");
-    if(unit=="其他")unit=`其他(${other})`;
-    
-    const data={date,time,unit,density,temp,user,note};
-    try{
-        const body=isEditMode?{action:"update",index:selectedIndex,data}:{action:"add",data};
-        await fetch(API_URL,{method:"POST",body:JSON.stringify(body)});
-        await loadData();clearForm();
-        setStatus(isEditMode?"✅ 修改完成":"✅ 新增完成");
-    }catch(e){setStatus("❌ 儲存失敗",true);}
+    if (unit === "其他" && !other) return alert("請輸入自訂單元");
+    if (!density || !temp || !user) return alert("請填寫完整");
+    if (unit === "其他") unit = `其他(${other})`;
+
+    const data = { date, time, unit, density, temp, user, note };
+    try {
+        const body = isEditMode
+            ? { action: "update", index: selectedIndex, data }
+            : { action: "add", data };
+        await fetch(API_URL, { method: "POST", body: JSON.stringify(body) });
+        await loadData();
+        clearForm();
+        setStatus(isEditMode ? "✅ 修改完成" : "✅ 新增完成");
+    } catch (e) {
+        setStatus("❌ 儲存失敗", true);
+    }
 }
 
-async function deleteData(){
-    if(selectedIndex<0)return alert("請點選資料");
-    if(!confirm("確定刪除？"))return;
-    try{
-        await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"delete",index:selectedIndex})});
-        await loadData();clearForm();setStatus("✅ 刪除完成");
-    }catch(e){setStatus("❌ 刪除失敗",true);}
+// 刪除
+async function deleteData() {
+    if (selectedIndex < 0) return alert("請點選資料");
+    if (!confirm("確定刪除？")) return;
+    try {
+        await fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "delete", index: selectedIndex })
+        });
+        await loadData();
+        clearForm();
+        setStatus("✅ 刪除完成");
+    } catch (e) {
+        setStatus("❌ 刪除失敗", true);
+    }
 }
 
-function clearForm(){
-    dom.density.value="";dom.temp.value="";dom.user.value="";dom.note.value="";
-    selectedIndex=-1;isEditMode=false;
+// 清空表單
+function clearForm() {
+    dom.density.value = "";
+    dom.temp.value = "";
+    dom.user.value = "";
+    dom.note.value = "";
+    selectedIndex = -1;
+    isEditMode = false;
 }
 
-function exportCSV(){
-    if(!records.length)return alert("無資料");
-    let csv="日期,時間,單元,比重,溫度,測量者,備註\n";
-    records.forEach(r=>{csv+=`${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note||""}\n`;});
-    const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="比重記錄表.csv";
+// 匯出 CSV
+function exportCSV() {
+    if (!records.length) return alert("無資料");
+    let csv = "日期,時間,單元,比重,溫度,測量者,備註\n";
+    records.forEach(r => {
+        csv += `${r.date},${r.time},${r.unit},${r.density},${r.temp},${r.user},${r.note || ""}\n`;
+    });
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "比重記錄表.csv";
     a.click();
 }
 
-dom.unit.addEventListener("change",e=>{
-    dom.otherUnit.style.display=e.target.value=="其他"?"inline-block":"none";
+// 其他欄位顯示
+dom.unit.addEventListener("change", e => {
+    dom.otherUnit.style.display = e.target.value === "其他" ? "inline-block" : "none";
 });
 
-window.onload=()=>{initDateTime();loadData();};
+// 啟動
+window.onload = () => { initDateTime(); loadData(); };
 </script>
 </body>
 </html>

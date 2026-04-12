@@ -11,7 +11,7 @@
         .form-group{margin:10px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         label{font-weight:bold;min-width:fit-content;margin-right:5px}
         select,input{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:16px}
-        .btn{padding:8px14px;margin:5px3px;border:none;border-radius:5px;color:white;cursor:pointer}
+        .btn{padding:8px 14px;margin:5px 3px;border:none;border-radius:5px;color:white;cursor:pointer}
         .btn-confirm{background:#4CAF50}
         .btn-delete{background:#f44336}
         .btn-download{background:#2196F3}
@@ -99,7 +99,7 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyBve5dxH-STuA4fumdgUxAsW6N16Vq7_BaZYSn_YMZNW_2rOe4NVD3oUjD7Aa32yEsEg/exec";
 // ============================================================================
 
-// DOM 快取（效能優化）
+// DOM 快取
 const dom = {
     year: document.getElementById("year"),
     month: document.getElementById("month"),
@@ -118,23 +118,16 @@ const dom = {
 
 let records = [], selectedIndex = -1, isEditMode = false;
 
-// ==============================================
-// 日期：取自試算表 A 欄
-// ==============================================
-function formatDateAsText(dateStr) {
-    return String(dateStr || "").trim().substring(0, 10);
+// ===================== 強制綁定試算表欄位 =====================
+// 日期 = 試算表 A 欄
+function formatDate(date){
+    return String(date || "").trim().substring(0,10);
 }
-
-// ==============================================
-// 🔥 時間：強制取自試算表 B 欄，清除所有亂碼
-// ==============================================
-function formatTimeAsText(timeStr) {
-    let t = String(timeStr || "").trim();
-    // 永久移除 .000Z / 日期 / 多餘格式
-    t = t.replace(/\d{4}-\d{2}-\d{2}T/, "")
-         .replace(/\.\d+Z/, "")
-         .replace(/Z/g, "");
-    return t.substring(0, 5);
+// 時間 = 試算表 B 欄（清除 .000Z 亂碼）
+function formatTime(time){
+    let t = String(time || "").trim();
+    t = t.replace(/.*T/, "").replace(/\..*/, "").replace(/Z/, "");
+    return t.substring(0,5);
 }
 
 // 狀態提示
@@ -170,24 +163,21 @@ function initDateTime() {
         `<option ${v==min ? "selected" : ""}>${v}</option>`).join("");
 }
 
-// ==============================================
-// 🔥 強制對應：日期=A欄、時間=B欄
-// ==============================================
+// ===================== 核心修正：強制讀取 A 欄 B 欄 =====================
 async function loadData() {
     setStatus("讀取 Google 試算表中...");
     try {
         const res = await fetch(API_URL);
         const raw = await res.json() || [];
 
-        // 強制綁定欄位：date=A欄、time=B欄
         records = raw.map(item => ({
             ...item,
-            date: formatDateAsText(item.date),   // 試算表 A 欄
-            time: formatTimeAsText(item.time)     // 試算表 B 欄
+            date: formatDate(item[0]),  // 🔥 強制 = 試算表 A 欄
+            time: formatTime(item[1])   // 🔥 強制 = 試算表 B 欄
         }));
 
         renderTable();
-        setStatus(`✅ 已載入最新前 30 筆`);
+        setStatus(`✅ 已載入最新資料`);
     } catch(e) {
         setStatus("❌ 讀取失敗", true);
     }
@@ -213,7 +203,7 @@ function selectRecord(idx) {
     selectedIndex = idx;
     isEditMode = true;
     const item = records[idx];
-    const [y,mo,d] = item.date.split("-");
+    const [y,mo,d] = item.date.split(/[-/]/);
     const [h,i] = item.time.split(":");
 
     dom.year.value = y;
@@ -225,7 +215,6 @@ function selectRecord(idx) {
     dom.temp.value = item.temp;
     dom.user.value = item.user;
     dom.note.value = item.note;
-
     setStatus("已載入 → 修改後按確認送出");
 }
 
@@ -252,8 +241,8 @@ async function saveData() {
             : { action:"add", data:record };
 
         await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify(postData)
+            method:"POST",
+            body:JSON.stringify(postData)
         });
         
         await loadData();
@@ -271,8 +260,8 @@ async function deleteData() {
 
     try {
         await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({ action:"delete", index:selectedIndex })
+            method:"POST",
+            body:JSON.stringify({ action:"delete", index:selectedIndex })
         });
         
         await loadData();
